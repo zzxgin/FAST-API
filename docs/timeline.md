@@ -9,7 +9,7 @@
 
 | 任务编号 | 任务 | 负责人 | 预计工期 | 交付标准 |
 |---------|------|--------|---------|----------|
-| F1-T1 | 初始化 Git 仓库与目录结构 | 后端负责人 | 0.5 天 | 创建 .git 仓库，完成 docs/README.md，目录结构（如 app/, src/, tests/, docker/） |
+| F1-T1 | 初始化 Git 仓库与目录结构 | 后端负责人 | 0.5 天 | 创建 .git 仓库，并一次性完成所有主目录结构（详见 README.md 文件树），包括 app/api、app/models、app/schemas、app/crud、app/core、tests、docker、scripts、docs、.github/workflows 等 |
 | F1-T2 | 配置 Python 环境与依赖 | 后端负责人 | 0.5 天 | requirements.txt 或 poetry.lock（根目录），可用虚拟环境脚本（如 venv.sh） |
 | F1-T3 | 初始化 FastAPI 项目骨架 | 后端负责人 | 1 天 | app/main.py（或 src/main.py），FastAPI 跑通 Hello World，包含基础路由 |
 | F1-T4 | 配置 MySQL/Redis/Docker | 后端负责人 | 1 天 | docker/docker-compose.yml，.env，数据库初始化脚本（如 scripts/init_db.sql） |
