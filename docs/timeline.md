@@ -13,7 +13,7 @@
 | F1-T2 | 配置 Python 环境与依赖 | 后端负责人 | 0.5 天 | requirements.txt（已生成，含 FastAPI、Uvicorn、SQLAlchemy、Pydantic、MySQL、dotenv、httpx、pytest） | ✅ 已完成 (Completed) | 2025-10-29 |
 | F1-T3 | 初始化 FastAPI 项目骨架 | 后端负责人 | 1 天 | app/main.py，FastAPI 跑通 Hello World，包含基础路由 | ✅ 已完成 (Completed) | 2025-10-29 |
 | F1-T4 | 配置 MySQL/Redis/Docker | 后端负责人 | 1 天 | docker/docker-compose.yml，.env，数据库初始化脚本 scripts/init_db.sql | ✅ 已完成 (Completed) | 2025-10-29 |
-| F1-T5 | 设计基础数据表结构 | 后端负责人 | 1 天 | docs/ER图.png，scripts/create_tables.sql，app/models/，app/schemas/ |
+| F1-T5 | 设计基础数据表结构 | 后端负责人 | 1 天 | docs/ER图.png（已完成），scripts/create_tables.sql（已完成），app/models/，app/schemas/ | ✅ 已完成 (Completed) | 2025-10-29 |
 
 ---
 
