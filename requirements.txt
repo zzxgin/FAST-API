@@ -1,8 +1,13 @@
-fastapi
+fastapi>=0.95,<0.104
+starlette>=0.22,<0.28
+pydantic>=1.10,<2.0
 uvicorn
-sqlalchemy
-pydantic
+sqlalchemy<2.0
 mysqlclient
 python-dotenv
 httpx
 pytest
+bcrypt==4.0.0
+passlib
+python-jose[cryptography]
+pydantic[email]
