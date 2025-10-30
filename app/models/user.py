@@ -5,11 +5,9 @@ Defines the User ORM model and role enumeration for database mapping.
 
 from typing import Optional
 from sqlalchemy import Column, Integer, String, Enum, DateTime
-from sqlalchemy.ext.declarative import declarative_base
+from app.models import Base
 import enum
 from datetime import datetime
-
-Base = declarative_base()
 
 class UserRole(enum.Enum):
     """Enumeration of user roles."""

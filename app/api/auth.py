@@ -1,17 +1,6 @@
 """
 Auth API routes for authentication and authorization.
 
-OneAPI doc:
-- All endpoints require JWT authentication via Bearer Token in the header.
-- All responses are standard JSON; errors return HTTPException.
-
-Endpoints:
-- GET /api/auth/role/{role}  Check if current user has the specified role
-
-Security:
-- All endpoints require login.
-- Role check endpoint can be used for frontend permission control.
-
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
