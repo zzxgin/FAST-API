@@ -9,7 +9,7 @@ def create_review(db: Session, review: ReviewCreate, reviewer_id: int):
     # Prevent duplicate review: Only one pending/appealing review per assignment_id
     existing = db.query(Review).filter(
         Review.assignment_id == review.assignment_id,
-        Review.review_result.in_("pending", "appealing")
+        Review.review_result.in_(["pending", "appealing"])
     ).first()
     if existing:
         return None  # Or raise Exception("Duplicate review for this assignment")
