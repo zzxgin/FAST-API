@@ -21,7 +21,7 @@
 
 | 任务编号 | 任务 | 负责人 | 预计工期 | 交付标准 | 验收状态 | 完成日期 |
 |---------|------|--------|---------|----------|----------|----------|
-| F2-T1 | 用户与权限模块 | 后端负责人 | 2 天 | app/api/users.py、app/api/auth.py、app/core/security.py，app/schemas/user.py、app/crud/user.py，注册/登录/鉴权接口文档 |
+| F2-T1 | 用户与权限模块 | 后端负责人 | 2 天 | app/api/users.py、app/api/auth.py、app/core/security.py，app/schemas/user.py、app/crud/user.py，注册/登录/鉴权接口文档，接口文档已同步至 docs/api.md | ✅ 已完成 (Completed) | 2025-10-30 |
 | F2-T2 | 任务管理模块 | 后端负责人 | 2 天 | app/api/tasks.py、app/models/task.py、app/schemas/task.py、app/crud/task.py，任务发布/接取/状态流转接口文档 |
 | F2-T3 | 任务审核与申诉模块 | 后端负责人 | 1 天 | app/api/review.py、app/models/review.py、app/schemas/review.py、app/crud/review.py，审核/申诉/仲裁接口文档 |
 | F2-T4 | 奖励结算模块 | 后端负责人 | 1 天 | app/api/reward.py、app/models/reward.py、app/schemas/reward.py、app/crud/reward.py，奖励发放与结算接口文档 |
