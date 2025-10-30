@@ -15,9 +15,10 @@ router = APIRouter(prefix="/api/review", tags=["review"])
 def submit_review(review: ReviewCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Submit a review for a task assignment.
-    - Only reviewer or admin can submit.
+    - Only admin can submit.
     """
-    # 权限校验可根据实际业务调整
+    if current_user.role.value != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can submit reviews")
     created = create_review(db, review, reviewer_id=current_user.id)
     return ReviewRead.from_orm(created)
 
@@ -43,9 +44,40 @@ def list_reviews_by_assignment(assignment_id: int, db: Session = Depends(get_db)
 def update_review_detail(review_id: int, review_update: ReviewUpdate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Update review result or comment.
-    - Only reviewer or admin can update.
+    - Only admin can update.
     """
+    if current_user.role.value != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can update reviews")
     review = update_review(db, review_id, review_update)
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
     return ReviewRead.from_orm(review)
+
+@router.post("/appeal/{assignment_id}", response_model=ReviewRead)
+def appeal_assignment(assignment_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    """
+    Submit an appeal for a task assignment.
+    - Only the assignment owner can appeal.
+    - Assignment status will be set to 'appealing'.
+    """
+    # Assignment owner check and assignment state flow logic
+    from app.crud.assignment import get_assignment, update_assignment
+    from app.models.assignment import AssignmentStatus
+    assignment = get_assignment(db, assignment_id)
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    if assignment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only assignment owner can appeal")
+    # State flow: Only approved/rejected assignments can be appealed
+    if assignment.status not in [AssignmentStatus.approved, AssignmentStatus.rejected]:
+        raise HTTPException(status_code=400, detail="Assignment not eligible for appeal")
+    # Update assignment status to appealing
+    update_assignment(db, assignment_id, AssignmentUpdate(status=AssignmentStatus.appealing))
+    # TODO: After appeal, support admin to perform second review and state flow
+    # TODO: Add idempotency check to prevent duplicate appeal submissions
+    # TODO: Integrate notification push for appeal result
+    review_data = ReviewCreate(assignment_id=assignment_id, review_result="appealing", review_comment="Appeal submitted")
+    created = create_review(db, review_data, reviewer_id=current_user.id)
+    if not created:
+        raise HTTPException(status_code=400, detail="Duplicate or invalid appeal")
+    return ReviewRead.from_orm(created)

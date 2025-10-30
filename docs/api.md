@@ -240,6 +240,227 @@ responses:
 
 ---
 
+# Review & Assignment APIs (F2-T3)
+
+### POST /api/review/submit
+```
+@openapi
+summary: Submit a review for a task assignment
+security:
+  - bearerAuth: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/ReviewCreate'
+responses:
+  200:
+    description: Review submitted successfully
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/ReviewRead'
+  403:
+    description: Only admin can submit reviews
+  400:
+    description: Duplicate or invalid review
+```
+
+### POST /api/review/appeal/{assignment_id}
+```
+@openapi
+summary: Submit an appeal for a task assignment
+security:
+  - bearerAuth: []
+parameters:
+  - in: path
+    name: assignment_id
+    required: true
+    schema:
+      type: integer
+responses:
+  200:
+    description: Appeal submitted successfully
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/ReviewRead'
+  403:
+    description: Only assignment owner can appeal
+  400:
+    description: Assignment not eligible for appeal or duplicate appeal
+```
+
+### GET /api/review/assignment/{assignment_id}
+```
+@openapi
+summary: List all reviews for a specific assignment
+parameters:
+  - in: path
+    name: assignment_id
+    required: true
+    schema:
+      type: integer
+responses:
+  200:
+    description: List of reviews
+    content:
+      application/json:
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewRead'
+```
+
+### GET /api/review/{review_id}
+```
+@openapi
+summary: Get review detail by ID
+parameters:
+  - in: path
+    name: review_id
+    required: true
+    schema:
+      type: integer
+responses:
+  200:
+    description: Review detail
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/ReviewRead'
+  404:
+    description: Review not found
+```
+
+### PUT /api/review/{review_id}
+```
+@openapi
+summary: Update review info
+security:
+  - bearerAuth: []
+parameters:
+  - in: path
+    name: review_id
+    required: true
+    schema:
+      type: integer
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/ReviewUpdate'
+responses:
+  200:
+    description: Review updated successfully
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/ReviewRead'
+  403:
+    description: Only admin can update reviews
+  404:
+    description: Review not found
+```
+
+### POST /api/assignment/accept
+```
+@openapi
+summary: Accept a task and create an assignment
+security:
+  - bearerAuth: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/AssignmentCreate'
+responses:
+  200:
+    description: Assignment created successfully
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/AssignmentRead'
+```
+
+### GET /api/assignment/{assignment_id}
+```
+@openapi
+summary: Get assignment detail by ID
+parameters:
+  - in: path
+    name: assignment_id
+    required: true
+    schema:
+      type: integer
+responses:
+  200:
+    description: Assignment detail
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/AssignmentRead'
+  404:
+    description: Assignment not found
+```
+
+### GET /api/assignment/user/{user_id}
+```
+@openapi
+summary: List all assignments for a user
+parameters:
+  - in: path
+    name: user_id
+    required: true
+    schema:
+      type: integer
+responses:
+  200:
+    description: List of assignments
+    content:
+      application/json:
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssignmentRead'
+```
+
+### PUT /api/assignment/{assignment_id}
+```
+@openapi
+summary: Update assignment info
+security:
+  - bearerAuth: []
+parameters:
+  - in: path
+    name: assignment_id
+    required: true
+    schema:
+      type: integer
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/AssignmentUpdate'
+responses:
+  200:
+    description: Assignment updated successfully
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/AssignmentRead'
+  403:
+    description: No permission to update this assignment
+  404:
+    description: Assignment not found
+```
+
+---
+
 ## Components (Schema Reference)
 
 ### UserCreate
