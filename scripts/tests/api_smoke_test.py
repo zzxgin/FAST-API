@@ -90,4 +90,26 @@ print("Listing assignments by user...")
 resp = requests.get(f"{BASE_URL}/api/assignment/user/{1}")  # Pass user_id as integer
 print_result("List Assignments by User", resp)
 
+# --- 11. Issue Reward (admin) ---
+print("Issuing reward...")
+reward_data = {"assignment_id": assignment_id, "user_id": 1, "amount": 100}
+resp = requests.post(f"{BASE_URL}/api/reward/issue", json=reward_data, headers=auth_header(admin_token))
+print_result("Issue Reward", resp)
+reward_id = None
+try:
+    reward_id = resp.json().get("id")
+except Exception:
+    pass
+
+# --- 12. Get Reward Detail ---
+if reward_id:
+    print("Getting reward detail...")
+    resp = requests.get(f"{BASE_URL}/api/reward/{reward_id}")
+    print_result("Get Reward Detail", resp)
+
+# --- 13. List Rewards by User ---
+print("Listing rewards by user...")
+resp = requests.get(f"{BASE_URL}/api/reward/user/{1}")
+print_result("List Rewards by User", resp)
+
 print("Smoke test completed.")

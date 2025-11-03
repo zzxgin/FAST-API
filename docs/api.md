@@ -240,6 +240,104 @@ responses:
 
 ---
 
+# Reward APIs (F2-T4)
+
+### POST /api/reward/issue
+```
+@openapi
+summary: Issue a reward to a user for an assignment
+security:
+  - bearerAuth: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/RewardCreate'
+responses:
+  200:
+    description: Reward issued successfully
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/RewardRead'
+  403:
+    description: Only admin can issue rewards
+```
+
+### GET /api/reward/{reward_id}
+```
+@openapi
+summary: Get reward detail by ID
+parameters:
+  - in: path
+    name: reward_id
+    required: true
+    schema:
+      type: integer
+responses:
+  200:
+    description: Reward detail
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/RewardRead'
+  404:
+    description: Reward not found
+```
+
+### GET /api/reward/user/{user_id}
+```
+@openapi
+summary: List all rewards for a user
+parameters:
+  - in: path
+    name: user_id
+    required: true
+    schema:
+      type: integer
+responses:
+  200:
+    description: List of rewards
+    content:
+      application/json:
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/RewardRead'
+```
+
+### PUT /api/reward/{reward_id}
+```
+@openapi
+summary: Update reward info (status, issued_time)
+security:
+  - bearerAuth: []
+parameters:
+  - in: path
+    name: reward_id
+    required: true
+    schema:
+      type: integer
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/RewardUpdate'
+responses:
+  200:
+    description: Reward updated successfully
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/RewardRead'
+  403:
+    description: Only admin can update rewards
+  404:
+    description: Reward not found
+```
+
 # Review & Assignment APIs (F2-T3)
 
 ### POST /api/review/submit

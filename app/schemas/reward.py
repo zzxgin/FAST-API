@@ -1,0 +1,26 @@
+"""
+Reward Pydantic schemas for API validation.
+"""
+from datetime import datetime
+from typing import Optional
+from pydantic import BaseModel
+from app.models.reward import RewardStatus
+
+class RewardBase(BaseModel):
+    assignment_id: int
+    amount: float
+
+class RewardCreate(RewardBase):
+    pass
+
+class RewardUpdate(BaseModel):
+    status: Optional[RewardStatus] = None
+    issued_time: Optional[datetime] = None
+
+class RewardRead(RewardBase):
+    id: int
+    status: RewardStatus
+    issued_time: Optional[datetime]
+
+    class Config:
+        orm_mode = True
