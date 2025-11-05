@@ -6,6 +6,8 @@ No pytest required.
 """
 import requests
 import json
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 BASE_URL = "http://127.0.0.1:8000"
 
@@ -113,3 +115,39 @@ resp = requests.get(f"{BASE_URL}/api/reward/user/{1}")
 print_result("List Rewards by User", resp)
 
 print("Smoke test completed.")
+
+# --- F2-T5: config.py 测试 ---
+print("Testing config.py...")
+try:
+    from app.core import config
+    print("[CONFIG] DB URL:", config.SQLALCHEMY_DATABASE_URL)
+except Exception as e:
+    print("[CONFIG] Import/config test failed:", e)
+print("-" * 40)
+
+# --- F2-T5: logger.py 测试 ---
+print("Testing logger.py...")
+try:
+    from app.core.logger import logger
+    logger.info("Smoke test logger info")
+    logger.error("Smoke test logger error")
+    print("[LOGGER] Logger test messages should appear in backend logs.")
+except Exception as e:
+    print("[LOGGER] Import/logger test failed:", e)
+print("-" * 40)
+
+# --- F2-T5: exception_handler.py 测试 ---
+print("Testing exception handler...")
+resp = requests.post(f"{BASE_URL}/api/user/login", json={"username": "notexist", "password": "wrong"})
+print_result("Login with wrong credentials (should trigger exception handler)", resp)
+resp = requests.get(f"{BASE_URL}/api/assignment/999999")  # 不存在的ID
+print_result("Get non-existent assignment (should trigger exception handler)", resp)
+
+# --- F2-T5: utils.py 测试 ---
+print("Testing utils.py...")
+try:
+    from app.core import utils
+    print("[UTILS] random_str(8):", utils.random_str(8))
+except Exception as e:
+    print("[UTILS] Import/utils test failed:", e)
+print("-" * 40)

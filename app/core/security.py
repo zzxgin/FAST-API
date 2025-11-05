@@ -11,15 +11,7 @@ from fastapi.security import OAuth2PasswordBearer
 from app.crud.user import get_user_by_username
 from app.core.database import get_db
 from sqlalchemy.orm import Session
-import os
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
-
-SECRET_KEY = os.environ.get("SECRET_KEY", "your_secret_key")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+from app.core.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/login")
 

@@ -3,7 +3,7 @@ from app.api import user, auth, tasks, assignment, review, reward
 
 from app.core.exception_handler import global_exception_handler, custom_http_exception_handler
 from fastapi.exceptions import RequestValidationError
-from fastapi import status
+from fastapi import status, HTTPException
 
 app = FastAPI()
 app.include_router(user.router)
