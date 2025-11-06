@@ -23,6 +23,17 @@ def get_task(db: Session, task_id: int):
 def get_tasks(db: Session, skip: int = 0, limit: int = 20):
     return db.query(Task).offset(skip).limit(limit).all()
 
+def get_task_list(db: Session, skip: int = 0, limit: int = 20, status: str = None, order_by: str = None):
+    query = db.query(Task)
+    if status:
+        query = query.filter(Task.status == status)
+    if order_by:
+        query = query.order_by(getattr(Task, order_by))
+    return query.offset(skip).limit(limit).all()
+
+def search_tasks(db: Session, keyword: str, skip: int = 0, limit: int = 20):
+    return db.query(Task).filter(Task.title.like(f"%{keyword}%")).offset(skip).limit(limit).all()
+
 def update_task(db: Session, task_id: int, task_update: TaskUpdate):
     db_task = get_task(db, task_id)
     if not db_task:

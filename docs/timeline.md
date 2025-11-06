@@ -25,7 +25,7 @@
 | F2-T2 | 任务管理模块 | 后端负责人 | 2 天 | app/api/tasks.py、app/models/task.py、app/schemas/task.py、app/crud/task.py，任务发布/接取/状态流转接口文档，接口文档已同步至 docs/api.md | ✅ 已完成 (Completed) | 2025-10-30 |
 | F2-T3 | 任务审核与申诉模块 | 后端负责人 | 1 天 | app/api/review.py、app/models/review.py、app/schemas/review.py、app/crud/review.py，审核/申诉/仲裁接口文档（已同步至 docs/api.md） | ✅ 已完成 (Completed) | 2025-10-30 |
 | F2-T4 | 奖励结算模块 | 后端负责人 | 1 天 | app/api/reward.py、app/models/reward.py、app/schemas/reward.py、app/crud/reward.py，奖励发放与结算接口文档（已同步至 docs/api.md） | ✅ 已完成 (Completed) | 2025-10-30 |
-| F2-T5 | 通用配置与工具模块 | 后端负责人 | 1 天 | app/core/config.py、app/core/logger.py、app/core/utils.py、异常处理相关代码 | 🧪 已测试 (Tested) | 2025-11-06 |
+| F2-T5 | 通用配置与工具模块 | 后端负责人 | 1 天 | app/core/config.py、app/core/logger.py、app/core/utils.py、异常处理相关代码 | ✅ 已完成 (Completed) | 2025-11-06 |
 
 ---
 
@@ -33,7 +33,7 @@
 
 | 任务编号 | 任务 | 负责人 | 预计工期 | 交付标准 | 验收状态 | 完成日期 |
 |---------|------|--------|---------|----------|----------|----------|
-| F3-T1 | 任务列表/详情/搜索 API | 后端负责人 | 1 天 | app/api/tasks.py（列表/详情/搜索接口）、app/schemas/task.py、app/crud/task.py，支持分页、筛选、排序 |
+| F3-T1 | 任务列表/详情/搜索 API | 后端负责人 | 1 天 | app/api/tasks.py（列表/详情/搜索接口）、app/schemas/task.py、app/crud/task.py，支持分页、筛选、排序 | ✅ 已完成 (Completed) | 2025-11-06 |
 | F3-T2 | 任务接取与提交 API | 后端负责人 | 1 天 | app/api/submit.py、app/models/submit.py、app/schemas/submit.py、app/crud/submit.py，支持文件上传、进度跟踪 |
 | F3-T3 | 任务审核流与通知 | 后端负责人 | 1 天 | app/api/review.py（审核流）、app/api/notifications.py（消息推送）、app/schemas/review.py、app/crud/review.py |
 | F3-T4 | 用户中心与个人任务 API | 后端负责人 | 1 天 | app/api/user_center.py、app/schemas/user.py、app/crud/user.py、app/models/reward.py、app/schemas/reward.py、app/crud/reward.py，个人信息、任务记录、统计接口 |

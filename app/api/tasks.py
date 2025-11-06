@@ -6,9 +6,10 @@ All endpoints use OpenAPI English doc comments.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.schemas.task import TaskCreate, TaskRead, TaskUpdate
-from app.crud.task import create_task, get_task, get_tasks, update_task, accept_task
+from app.crud.task import create_task, get_task, get_tasks, update_task, accept_task, search_tasks, get_task_list
 from app.core.database import get_db
 from app.core.security import get_current_user
+
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -23,6 +24,19 @@ def publish_task(task: TaskCreate, db: Session = Depends(get_db), current_user =
     created = create_task(db, task, publisher_id=current_user.id)
     return TaskRead.from_orm(created)
 
+@router.get("/search/", response_model=list[TaskRead])
+def search_task(
+    keyword: str,
+    skip: int = 0,
+    limit: int = 20,
+    db: Session = Depends(get_db)
+):
+    """
+    Search tasks by keyword in title.
+    """
+    tasks = search_tasks(db, keyword, skip=skip, limit=limit)
+    return [TaskRead.from_orm(t) for t in tasks]
+
 @router.get("/{task_id}", response_model=TaskRead)
 def get_task_detail(task_id: int, db: Session = Depends(get_db)):
     """
@@ -34,11 +48,17 @@ def get_task_detail(task_id: int, db: Session = Depends(get_db)):
     return TaskRead.from_orm(task)
 
 @router.get("/", response_model=list[TaskRead])
-def list_tasks(skip: int = 0, limit: int = 20, db: Session = Depends(get_db)):
+def list_tasks(
+    skip: int = 0,
+    limit: int = 20,
+    status: str = None,
+    order_by: str = None,
+    db: Session = Depends(get_db)
+):
     """
-    List all tasks (paginated).
+    List all tasks (paginated, filterable, sortable).
     """
-    tasks = get_tasks(db, skip=skip, limit=limit)
+    tasks = get_task_list(db, skip=skip, limit=limit, status=status, order_by=order_by)
     return [TaskRead.from_orm(t) for t in tasks]
 
 @router.put("/{task_id}", response_model=TaskRead)

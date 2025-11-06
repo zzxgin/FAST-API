@@ -116,6 +116,26 @@ print_result("List Rewards by User", resp)
 
 print("Smoke test completed.")
 
+# --- F3-T1: Task List API 测试 ---
+print("Testing task list (分页/筛选/排序)...")
+resp = requests.get(f"{BASE_URL}/api/tasks/?skip=0&limit=5")
+print_result("Task List (first 5)", resp)
+resp = requests.get(f"{BASE_URL}/api/tasks/?status=open")
+print_result("Task List (status=open)", resp)
+resp = requests.get(f"{BASE_URL}/api/tasks/?order_by=created_at")
+print_result("Task List (order_by=created_at)", resp)
+
+# --- F3-T1: Task Search API 测试 ---
+print("Testing task search...")
+resp = requests.get(f"{BASE_URL}/api/tasks/search/?keyword=Test")
+print_result("Task Search (keyword=Test)", resp)
+
+# --- F3-T1: Task Detail API 测试 ---
+print("Testing task detail...")
+if task_id:
+    resp = requests.get(f"{BASE_URL}/api/tasks/{task_id}")
+    print_result("Task Detail", resp)
+
 # --- F2-T5: config.py 测试 ---
 print("Testing config.py...")
 try:
