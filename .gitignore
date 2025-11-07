@@ -45,3 +45,6 @@ alembic/versions/
 # Misc
 *.swp
 *.swo
+
+# uploads
+uploads/
