@@ -60,6 +60,26 @@ resp = requests.post(f"{BASE_URL}/api/assignment/accept", json=assignment_data, 
 print_result("Accept Task", resp)
 assignment_id = resp.json().get("id")
 
+# --- 4.1 Submit Assignment (user, text) ---
+print("Submitting assignment (text)...")
+submit_data = {"submit_content": "This is my assignment result."}
+resp = requests.post(f"{BASE_URL}/api/assignment/submit/{assignment_id}", data=submit_data, headers=auth_header(user_token))
+print_result("Submit Assignment (text)", resp)
+
+# --- 4.2 Submit Assignment (user, file) ---
+print("Submitting assignment (file)...")
+file_path = os.path.join(os.path.dirname(__file__), "api_smoke_test.py")
+with open(file_path, "rb") as f:
+    files = {"file": ("api_smoke_test.py", f, "text/x-python")}
+    resp = requests.post(f"{BASE_URL}/api/assignment/submit/{assignment_id}", files=files, headers=auth_header(user_token))
+    print_result("Submit Assignment (file)", resp)
+
+# --- 4.3 Update Assignment Progress (user) ---
+print("Updating assignment progress...")
+progress_data = {"status": "pending_review"}
+resp = requests.patch(f"{BASE_URL}/api/assignment/{assignment_id}/progress", json=progress_data, headers=auth_header(user_token))
+print_result("Update Assignment Progress", resp)
+
 # --- 5. Submit Review (admin) ---
 print("Submitting review...")
 review_data = {"assignment_id": assignment_id, "review_result": "approved", "review_comment": "Looks good."}
