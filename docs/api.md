@@ -526,12 +526,47 @@ responses:
             $ref: '#/components/schemas/AssignmentRead'
 ```
 
-### PUT /api/assignment/{assignment_id}
+### POST /api/assignment/submit/{assignment_id}
 ```
 @openapi
-summary: Update assignment info
-security:
-  - bearerAuth: []
+summary: Submit assignment result (text or file)
+parameters:
+  - in: path
+    name: assignment_id
+    required: true
+    schema:
+      type: integer
+requestBody:
+  required: false
+  content:
+    multipart/form-data:
+      schema:
+        type: object
+        properties:
+          submit_content:
+            type: string
+            description: Submission text or file path
+          file:
+            type: string
+            format: binary
+            description: File upload
+responses:
+  200:
+    description: Assignment submitted successfully
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/AssignmentRead'
+  403:
+    description: No permission to submit for this assignment
+  404:
+    description: Assignment not found
+```
+
+### PATCH /api/assignment/{assignment_id}/progress
+```
+@openapi
+summary: Update assignment progress/status
 parameters:
   - in: path
     name: assignment_id
@@ -546,7 +581,7 @@ requestBody:
         $ref: '#/components/schemas/AssignmentUpdate'
 responses:
   200:
-    description: Assignment updated successfully
+    description: Assignment progress updated successfully
     content:
       application/json:
         schema:
@@ -556,6 +591,7 @@ responses:
   404:
     description: Assignment not found
 ```
+
 
 ---
 
