@@ -87,6 +87,22 @@ resp = requests.post(f"{BASE_URL}/api/review/submit", json=review_data, headers=
 print_result("Submit Review", resp)
 review_id = resp.json().get("id")
 
+# --- F3-T3: Notification API Tests ---
+print("Testing notification send (admin)...")
+notification_data = {"user_id": 1, "content": "Manual notification test."}
+resp = requests.post(f"{BASE_URL}/api/notifications/send", json=notification_data, headers=auth_header(admin_token))
+print_result("Send Notification (admin)", resp)
+
+print("Testing notification list (user)...")
+resp = requests.get(f"{BASE_URL}/api/notifications/user/1", headers=auth_header(user_token))
+print_result("List Notifications (user)", resp)
+
+if resp.status_code == 200 and resp.json():
+    notification_id = resp.json()[0]["id"]
+    print("Marking notification as read...")
+    resp2 = requests.patch(f"{BASE_URL}/api/notifications/{notification_id}/read", headers=auth_header(user_token))
+    print_result("Mark Notification Read", resp2)
+
 # --- 6. Appeal (user) ---
 print("Submitting appeal...")
 resp = requests.post(f"{BASE_URL}/api/review/appeal/{assignment_id}", headers=auth_header(user_token))
