@@ -34,7 +34,7 @@
 | 任务编号 | 任务 | 负责人 | 预计工期 | 交付标准 | 验收状态 | 完成日期 |
 |---------|------|--------|---------|----------|----------|----------|
 | F3-T1 | 任务列表/详情/搜索 API | 后端负责人 | 1 天 | app/api/tasks.py（列表/详情/搜索接口）、app/schemas/task.py、app/crud/task.py，支持分页、筛选、排序 | ✅ 已完成 (Completed) | 2025-11-06 |
-| F3-T2 | 任务接取与提交 API | 后端负责人 | 1 天 | app/api/submit.py、app/models/submit.py、app/schemas/submit.py、app/crud/submit.py，支持文件上传、进度跟踪 |
+| F3-T2 | 任务接取与提交 API | 后端负责人 | 1 天 | app/api/assignment.py、app/models/assignment.py、app/schemas/assignment.py、app/crud/assignment.py，支持文件上传、进度跟踪 | ✅ 已完成 (Completed) | 2025-11-10 |
 | F3-T3 | 任务审核流与通知 | 后端负责人 | 1 天 | app/api/review.py（审核流）、app/api/notifications.py（消息推送）、app/schemas/review.py、app/crud/review.py |
 | F3-T4 | 用户中心与个人任务 API | 后端负责人 | 1 天 | app/api/user_center.py、app/schemas/user.py、app/crud/user.py、app/models/reward.py、app/schemas/reward.py、app/crud/reward.py，个人信息、任务记录、统计接口 |
 | F3-T5 | 管理员后台接口 | 后端负责人 | 1 天 | app/api/admin.py、app/schemas/admin.py、app/crud/admin.py、app/models/reward.py、app/schemas/reward.py、app/crud/reward.py，用户/任务管理、风控、统计接口 |
