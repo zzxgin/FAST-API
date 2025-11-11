@@ -595,6 +595,73 @@ responses:
 
 ---
 
+# Notification APIs (F3-T3)
+
+### POST /api/notifications/send
+```
+@openapi
+summary: Send a notification to a user (manual)
+security:
+  - bearerAuth: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/NotificationCreate'
+responses:
+  200:
+    description: Notification sent successfully
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/NotificationRead'
+  403:
+    description: No permission to send notification
+```
+
+### GET /api/notifications/user/{user_id}
+```
+@openapi
+summary: List all notifications for a user
+parameters:
+  - in: path
+    name: user_id
+    required: true
+    schema:
+      type: integer
+responses:
+  200:
+    description: List of notifications
+    content:
+      application/json:
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationRead'
+```
+
+### GET /api/notifications/{notification_id}
+```
+@openapi
+summary: Get notification detail by ID
+parameters:
+  - in: path
+    name: notification_id
+    required: true
+    schema:
+      type: integer
+responses:
+  200:
+    description: Notification detail
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/NotificationRead'
+  404:
+    description: Notification not found
+```
+
 ## Components (Schema Reference)
 
 ### UserCreate
