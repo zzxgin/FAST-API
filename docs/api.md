@@ -662,6 +662,205 @@ responses:
     description: Notification not found
 ```
 
+---
+
+# User Center APIs (F3-T4)
+
+### GET /api/user/profile
+```
+@openapi
+summary: Get current user profile
+security:
+  - bearerAuth: []
+responses:
+  200:
+    description: User profile information
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/UserProfileResponse'
+  401:
+    description: Unauthorized
+  404:
+    description: User not found
+```
+
+### PUT /api/user/profile
+```
+@openapi
+summary: Update current user profile
+security:
+  - bearerAuth: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/UserProfileUpdate'
+responses:
+  200:
+    description: Updated user profile
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/UserProfileResponse'
+  401:
+    description: Unauthorized
+  404:
+    description: User not found
+```
+
+### GET /api/user/tasks
+```
+@openapi
+summary: Get current user's task records
+security:
+  - bearerAuth: []
+parameters:
+  - in: query
+    name: status
+    required: false
+    schema:
+      type: string
+      enum: [pending_review, approved, rejected, appealing]
+  - in: query
+    name: skip
+    required: false
+    schema:
+      type: integer
+      minimum: 0
+  - in: query
+    name: limit
+    required: false
+    schema:
+      type: integer
+      minimum: 1
+      maximum: 100
+responses:
+  200:
+    description: List of user's task records
+    content:
+      application/json:
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserTaskRecord'
+  401:
+    description: Unauthorized
+```
+
+### GET /api/user/published-tasks
+```
+@openapi
+summary: Get current user's published tasks
+security:
+  - bearerAuth: []
+parameters:
+  - in: query
+    name: status
+    required: false
+    schema:
+      type: string
+      enum: [open, in_progress, pending_review, completed, closed]
+  - in: query
+    name: skip
+    required: false
+    schema:
+      type: integer
+      minimum: 0
+  - in: query
+    name: limit
+    required: false
+    schema:
+      type: integer
+      minimum: 1
+      maximum: 100
+responses:
+  200:
+    description: List of user's published tasks
+    content:
+      application/json:
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserPublishedTask'
+  401:
+    description: Unauthorized
+```
+
+### GET /api/user/rewards
+```
+@openapi
+summary: Get current user's reward records
+security:
+  - bearerAuth: []
+parameters:
+  - in: query
+    name: status
+    required: false
+    schema:
+      type: string
+      enum: [pending, issued, failed]
+  - in: query
+    name: skip
+    required: false
+    schema:
+      type: integer
+      minimum: 0
+  - in: query
+    name: limit
+    required: false
+    schema:
+      type: integer
+      minimum: 1
+      maximum: 100
+responses:
+  200:
+    description: List of user's reward records
+    content:
+      application/json:
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserRewardRecord'
+  401:
+    description: Unauthorized
+```
+
+### GET /api/user/statistics
+```
+@openapi
+summary: Get current user statistics overview
+security:
+  - bearerAuth: []
+responses:
+  200:
+    description: User statistics overview
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/UserStatistics'
+  401:
+    description: Unauthorized
+```
+
+### GET /api/user/task-stats
+```
+@openapi
+summary: Get detailed user task statistics
+security:
+  - bearerAuth: []
+responses:
+  200:
+    description: Detailed task statistics
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/UserTaskStats'
+  401:
+    description: Unauthorized
+```
+
 ## Components (Schema Reference)
 
 ### UserCreate
@@ -775,6 +974,185 @@ TaskRead:
     updated_at:
       type: string
       format: date-time
+```
+
+### UserProfileUpdate
+```
+@openapi
+UserProfileUpdate:
+  type: object
+  properties:
+    email:
+      type: string
+```
+
+### UserProfileResponse
+```
+@openapi
+UserProfileResponse:
+  type: object
+  properties:
+    id:
+      type: integer
+    username:
+      type: string
+    email:
+      type: string
+    role:
+      type: string
+      enum: [user, publisher, admin]
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+```
+
+### UserTaskRecord
+```
+@openapi
+UserTaskRecord:
+  type: object
+  properties:
+    task_id:
+      type: integer
+    task_title:
+      type: string
+    task_status:
+      type: string
+      enum: [open, in_progress, pending_review, completed, closed]
+    assignment_id:
+      type: integer
+    assignment_status:
+      type: string
+      enum: [pending_review, approved, rejected, appealing]
+    reward_amount:
+      type: number
+      format: float
+    submit_time:
+      type: string
+      format: date-time
+    review_time:
+      type: string
+      format: date-time
+    created_at:
+      type: string
+      format: date-time
+```
+
+### UserPublishedTask
+```
+@openapi
+UserPublishedTask:
+  type: object
+  properties:
+    task_id:
+      type: integer
+    title:
+      type: string
+    status:
+      type: string
+      enum: [open, in_progress, pending_review, completed, closed]
+    reward_amount:
+      type: number
+      format: float
+    total_assignments:
+      type: integer
+    pending_reviews:
+      type: integer
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+```
+
+### UserRewardRecord
+```
+@openapi
+UserRewardRecord:
+  type: object
+  properties:
+    reward_id:
+      type: integer
+    assignment_id:
+      type: integer
+    task_title:
+      type: string
+    amount:
+      type: number
+      format: float
+    status:
+      type: string
+      enum: [pending, issued, failed]
+    issued_time:
+      type: string
+      format: date-time
+    created_at:
+      type: string
+      format: date-time
+```
+
+### UserStatistics
+```
+@openapi
+UserStatistics:
+  type: object
+  properties:
+    total_tasks_taken:
+      type: integer
+    total_tasks_completed:
+      type: integer
+    total_tasks_published:
+      type: integer
+    total_rewards_earned:
+      type: number
+      format: float
+    total_rewards_pending:
+      type: number
+      format: float
+    success_rate:
+      type: number
+      format: float
+    average_rating:
+      type: number
+      format: float
+      nullable: true
+```
+
+### UserTaskStats
+```
+@openapi
+UserTaskStats:
+  type: object
+  properties:
+    taken_tasks:
+      type: integer
+    completed_tasks:
+      type: integer
+    pending_tasks:
+      type: integer
+    rejected_tasks:
+      type: integer
+    published_tasks:
+      type: integer
+    published_completed:
+      type: integer
+    published_in_progress:
+      type: integer
+    total_earned:
+      type: number
+      format: float
+    total_pending:
+      type: number
+      format: float
+    monthly_earned:
+      type: number
+      format: float
+    monthly_completed:
+      type: integer
 ```
 
 ### Security Schemes

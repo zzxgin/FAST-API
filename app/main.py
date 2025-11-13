@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api import user, auth, tasks, assignment, review, reward, notifications
+from app.api import user, auth, tasks, assignment, review, reward, notifications, user_center
 
 from app.core.exception_handler import global_exception_handler, custom_http_exception_handler
 from fastapi.exceptions import RequestValidationError
@@ -13,6 +13,7 @@ app.include_router(assignment.router)
 app.include_router(review.router)
 app.include_router(reward.router)
 app.include_router(notifications.router)
+app.include_router(user_center.router, prefix="/api/user", tags=["user-center"])
 
 # Register global exception handlers
 app.add_exception_handler(Exception, global_exception_handler)
