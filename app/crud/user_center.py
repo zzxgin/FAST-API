@@ -126,7 +126,7 @@ def get_user_published_tasks(db: Session, user_id: int, status: Optional[str] = 
     Returns:
         List of published tasks
     """
-    # 子查询：获取每个任务的总接取数和待审核数
+    # Subquery: get total assignments and pending reviews for each task
     assignment_stats = db.query(
         TaskAssignment.task_id,
         func.count(TaskAssignment.id).label('total_assignments'),
@@ -235,7 +235,7 @@ def get_user_statistics(db: Session, user_id: int) -> UserStatistics:
     Returns:
         User statistics
     """
-    # 任务统计
+    # Task statistics
     total_tasks_taken = db.query(TaskAssignment).filter(
         TaskAssignment.user_id == user_id
     ).count()
@@ -247,12 +247,12 @@ def get_user_statistics(db: Session, user_id: int) -> UserStatistics:
         )
     ).count()
 
-    # 发布任务统计
+    # Published task statistics
     total_tasks_published = db.query(Task).filter(
         Task.publisher_id == user_id
     ).count()
 
-    # 奖励统计
+    # Reward statistics
     total_rewards_earned = db.query(func.sum(Reward.amount)).join(
         TaskAssignment, Reward.assignment_id == TaskAssignment.id
     ).filter(
@@ -271,7 +271,7 @@ def get_user_statistics(db: Session, user_id: int) -> UserStatistics:
         )
     ).scalar() or 0.0
 
-    # 成功率
+    # Success rate
     success_rate = 0.0
     if total_tasks_taken > 0:
         success_rate = (total_tasks_completed / total_tasks_taken) * 100
@@ -283,7 +283,7 @@ def get_user_statistics(db: Session, user_id: int) -> UserStatistics:
         total_rewards_earned=float(total_rewards_earned),
         total_rewards_pending=float(total_rewards_pending),
         success_rate=round(success_rate, 2),
-        average_rating=None  # TODO: 等评分系统实现后添加
+        average_rating=None  # TODO: Add after rating system is implemented
     )
 
 
@@ -297,7 +297,7 @@ def get_user_task_stats(db: Session, user_id: int) -> UserTaskStats:
     Returns:
         Detailed task statistics
     """
-    # 接取任务统计
+    # Task assignment statistics
     taken_tasks = db.query(TaskAssignment).filter(
         TaskAssignment.user_id == user_id
     ).count()
@@ -323,7 +323,7 @@ def get_user_task_stats(db: Session, user_id: int) -> UserTaskStats:
         )
     ).count()
 
-    # 发布任务统计
+    # Published task statistics
     published_tasks = db.query(Task).filter(
         Task.publisher_id == user_id
     ).count()
@@ -342,7 +342,7 @@ def get_user_task_stats(db: Session, user_id: int) -> UserTaskStats:
         )
     ).count()
 
-    # 奖励统计
+    # Reward statistics
     total_earned = db.query(func.sum(Reward.amount)).join(
         TaskAssignment, Reward.assignment_id == TaskAssignment.id
     ).filter(
@@ -361,7 +361,7 @@ def get_user_task_stats(db: Session, user_id: int) -> UserTaskStats:
         )
     ).scalar() or 0.0
 
-    # 本月统计
+    # This month statistics
     current_month = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     monthly_earned = db.query(func.sum(Reward.amount)).join(
