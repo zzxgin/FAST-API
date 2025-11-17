@@ -20,6 +20,7 @@ class UserCreate(UserBase):
 class UserRead(UserBase):
     id: int
     role: UserRole
+    is_active: bool
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 
