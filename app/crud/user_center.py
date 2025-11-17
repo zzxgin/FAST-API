@@ -5,7 +5,7 @@ Provides functions for user profile management, task records, and statistics.
 
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, extract
+from sqlalchemy import func, and_, extract, case
 from datetime import datetime, timedelta
 
 from app.models.user import User
@@ -131,7 +131,7 @@ def get_user_published_tasks(db: Session, user_id: int, status: Optional[str] = 
         TaskAssignment.task_id,
         func.count(TaskAssignment.id).label('total_assignments'),
         func.sum(
-            func.case(
+            case(
                 (TaskAssignment.status == AssignmentStatus.pending_review, 1),
                 else_=0
             )

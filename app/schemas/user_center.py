@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.models.user import UserRole
 from app.models.task import TaskStatus
 from app.models.assignment import AssignmentStatus
+from app.models.reward import RewardStatus
 
 
 class UserProfileUpdate(BaseModel):
@@ -67,7 +68,7 @@ class UserRewardRecord(BaseModel):
     assignment_id: int
     task_title: str
     amount: float
-    status: str  # pending, issued, failed
+    status: RewardStatus  # pending, issued, failed
     issued_time: Optional[datetime]
     created_at: datetime
 

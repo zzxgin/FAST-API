@@ -207,3 +207,45 @@ try:
 except Exception as e:
     print("[UTILS] Import/utils test failed:", e)
 print("-" * 40)
+
+# --- F3-T4: User Center API Tests ---
+print("Testing user center - get user profile...")
+resp = requests.get(f"{BASE_URL}/api/user/profile", headers=auth_header(user_token))
+print_result("Get User Profile", resp)
+
+print("Testing user center - update user profile...")
+profile_update = {"email": "updated_testuser@example.com", "bio": "Updated bio for testing"}
+resp = requests.put(f"{BASE_URL}/api/user/profile", json=profile_update, headers=auth_header(user_token))
+print_result("Update User Profile", resp)
+
+print("Testing user center - get user task records...")
+resp = requests.get(f"{BASE_URL}/api/user/tasks", headers=auth_header(user_token))
+print_result("Get User Task Records", resp)
+
+print("Testing user center - get user task records with status filter...")
+resp = requests.get(f"{BASE_URL}/api/user/tasks?status=pending_review", headers=auth_header(user_token))
+print_result("Get User Task Records (status=pending_review)", resp)
+
+print("Testing user center - get user published tasks (publisher)...")
+resp = requests.get(f"{BASE_URL}/api/user/published-tasks", headers=auth_header(pub_token))
+print_result("Get User Published Tasks", resp)
+
+print("Testing user center - get user reward records...")
+resp = requests.get(f"{BASE_URL}/api/user/rewards", headers=auth_header(user_token))
+print_result("Get User Reward Records", resp)
+
+print("Testing user center - get user statistics...")
+resp = requests.get(f"{BASE_URL}/api/user/statistics", headers=auth_header(user_token))
+print_result("Get User Statistics", resp)
+
+print("Testing user center - get user task statistics...")
+resp = requests.get(f"{BASE_URL}/api/user/task-stats", headers=auth_header(user_token))
+print_result("Get User Task Statistics", resp)
+
+print("Testing user center - pagination test...")
+resp = requests.get(f"{BASE_URL}/api/user/tasks?skip=0&limit=5", headers=auth_header(user_token))
+print_result("Get User Task Records (pagination)", resp)
+
+print("Testing user center - admin access to user center...")
+resp = requests.get(f"{BASE_URL}/api/user/statistics", headers=auth_header(admin_token))
+print_result("Admin Get User Statistics", resp)

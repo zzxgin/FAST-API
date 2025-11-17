@@ -4,7 +4,7 @@ Reward SQLAlchemy model definition.
 from sqlalchemy import Column, Integer, Float, ForeignKey, DateTime, Enum
 from sqlalchemy.orm import relationship
 from app.models import Base
-from datetime import datetime
+from datetime import datetime, timezone
 import enum
 
 class RewardStatus(enum.Enum):
@@ -19,3 +19,4 @@ class Reward(Base):
     amount = Column(Float, nullable=False)
     status = Column(Enum(RewardStatus), default=RewardStatus.pending)
     issued_time = Column(DateTime)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
