@@ -7,9 +7,7 @@ __pycache__/
 
 # Virtualenv
 venv/
-<<<<<<< HEAD
 .env
->>>>>>> develop
 env/
 
 # VSCode
