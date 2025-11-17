@@ -5,7 +5,7 @@ from sqlalchemy import Column, Integer, Text, Enum, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from app.models import Base
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 from app.models.user import User
 from app.models.task import Task
 
@@ -24,5 +24,6 @@ class TaskAssignment(Base):
     submit_time = Column(DateTime)
     status = Column(Enum(AssignmentStatus), default=AssignmentStatus.pending_review)
     review_time = Column(DateTime)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     user = relationship("User")
     task = relationship("Task")
