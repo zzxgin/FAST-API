@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.models.user import UserRole
 from app.models.task import TaskStatus
 from app.models.assignment import AssignmentStatus
+from app.models.reward import RewardStatus
 
 
 class UserProfileUpdate(BaseModel):
@@ -67,7 +68,7 @@ class UserRewardRecord(BaseModel):
     assignment_id: int
     task_title: str
     amount: float
-    status: str  # pending, issued, failed
+    status: RewardStatus  # pending, issued, failed
     issued_time: Optional[datetime]
     created_at: datetime
 
@@ -82,24 +83,24 @@ class UserStatistics(BaseModel):
     total_tasks_published: int
     total_rewards_earned: float
     total_rewards_pending: float
-    success_rate: float  # 完成任务成功率
-    average_rating: Optional[float]  # TODO: 等评分系统实现后添加
+    success_rate: float  # Task completion success rate
+    average_rating: Optional[float]  # TODO: Add after rating system is implemented
 
 
 class UserTaskStats(BaseModel):
     """Schema for detailed task statistics."""
-    # 接取任务统计
+    # Task assignment statistics
     taken_tasks: int
     completed_tasks: int
     pending_tasks: int
     rejected_tasks: int
 
-    # 发布任务统计
+    # Published task statistics
     published_tasks: int
     published_completed: int
     published_in_progress: int
 
-    # 奖励统计
+    # Reward statistics
     total_earned: float
     total_pending: float
     monthly_earned: float
