@@ -8,10 +8,11 @@ from app.schemas.review import ReviewCreate, ReviewRead, ReviewUpdate
 from app.crud.review import create_review, get_review, get_reviews_by_assignment, update_review
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.response import success_response
 
 router = APIRouter(prefix="/api/review", tags=["review"])
 
-@router.post("/submit", response_model=ReviewRead)
+@router.post("/submit")
 def submit_review(review: ReviewCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Submit a review for a task assignment.
@@ -20,9 +21,9 @@ def submit_review(review: ReviewCreate, db: Session = Depends(get_db), current_u
     if current_user.role.value != "admin":
         raise HTTPException(status_code=403, detail="Only admin can submit reviews")
     created = create_review(db, review, reviewer_id=current_user.id)
-    return ReviewRead.from_orm(created)
+    return success_response(data=ReviewRead.from_orm(created), message="审核提交成功")
 
-@router.get("/{review_id}", response_model=ReviewRead)
+@router.get("/{review_id}")
 def get_review_detail(review_id: int, db: Session = Depends(get_db)):
     """
     Get review detail by ID.
@@ -30,17 +31,20 @@ def get_review_detail(review_id: int, db: Session = Depends(get_db)):
     review = get_review(db, review_id)
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
-    return ReviewRead.from_orm(review)
+    return success_response(data=ReviewRead.from_orm(review), message="获取成功")
 
-@router.get("/assignment/{assignment_id}", response_model=list[ReviewRead])
+@router.get("/assignment/{assignment_id}")
 def list_reviews_by_assignment(assignment_id: int, db: Session = Depends(get_db)):
     """
     List all reviews for a specific assignment.
     """
     reviews = get_reviews_by_assignment(db, assignment_id)
-    return [ReviewRead.from_orm(r) for r in reviews]
+    return success_response(
+        data=[ReviewRead.from_orm(r) for r in reviews],
+        message="获取成功"
+    )
 
-@router.put("/{review_id}", response_model=ReviewRead)
+@router.put("/{review_id}")
 def update_review_detail(review_id: int, review_update: ReviewUpdate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Update review result or comment.
@@ -51,9 +55,9 @@ def update_review_detail(review_id: int, review_update: ReviewUpdate, db: Sessio
     review = update_review(db, review_id, review_update)
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
-    return ReviewRead.from_orm(review)
+    return success_response(data=ReviewRead.from_orm(review), message="更新成功")
 
-@router.post("/appeal/{assignment_id}", response_model=ReviewRead)
+@router.post("/appeal/{assignment_id}")
 def appeal_assignment(assignment_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Submit an appeal for a task assignment.
@@ -63,6 +67,7 @@ def appeal_assignment(assignment_id: int, db: Session = Depends(get_db), current
     # Assignment owner check and assignment state flow logic
     from app.crud.assignment import get_assignment, update_assignment
     from app.models.assignment import AssignmentStatus
+    from app.schemas.assignment import AssignmentUpdate
     assignment = get_assignment(db, assignment_id)
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
@@ -80,4 +85,4 @@ def appeal_assignment(assignment_id: int, db: Session = Depends(get_db), current
     created = create_review(db, review_data, reviewer_id=current_user.id)
     if not created:
         raise HTTPException(status_code=400, detail="Duplicate or invalid appeal")
-    return ReviewRead.from_orm(created)
+    return success_response(data=ReviewRead.from_orm(created), message="申诉提交成功")

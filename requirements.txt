@@ -1,6 +1,6 @@
 fastapi>=0.95,<0.104
 starlette>=0.22,<0.28
-pydantic>=1.10,<2.0
+pydantic>=1.10,<3.0 
 uvicorn
 sqlalchemy<2.0
 mysqlclient
@@ -10,4 +10,4 @@ pytest
 bcrypt==4.0.0
 passlib
 python-jose[cryptography]
-pydantic[email]
+pydantic[email]python-multipart>=0.0.6

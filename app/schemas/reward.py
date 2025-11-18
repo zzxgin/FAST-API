@@ -21,6 +21,8 @@ class RewardRead(RewardBase):
     id: int
     status: RewardStatus
     issued_time: Optional[datetime]
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
 
     class Config:
         orm_mode = True
