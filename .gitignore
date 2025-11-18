@@ -49,3 +49,7 @@ alembic/versions/
 
 # uploads
 uploads/
+#md
+API_DESIGN_ANALYSIS.md  
+RESPONSE_FORMAT.md
+SMOKE_TEST_REPORT.md

@@ -4,13 +4,14 @@ from app.api import user, auth, tasks, assignment, review, reward, notifications
 # from app.core.exception_handler import global_exception_handler, custom_http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi import status, HTTPException
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from app.core.exception_handler import (
     global_exception_handler,
     custom_http_exception_handler,
     validation_exception_handler,  # 导入 RequestValidationError 专属处理器
     db_integrity_exception_handler,  # 导入数据库完整性异常处理器
     business_exception_handler,  # 导入自定义业务异常处理器
+    db_exception_handler,
     BusinessError  # 导入自定义业务异常类
 )
 app = FastAPI()
@@ -36,7 +37,9 @@ app.add_exception_handler(BusinessError, business_exception_handler)
 app.add_exception_handler(HTTPException, custom_http_exception_handler)
 # 4. 数据库完整性异常（如唯一键冲突）→ 专属处理器
 app.add_exception_handler(IntegrityError, db_integrity_exception_handler)
-# 5. 所有未捕获的异常 → 兜底处理器（最后注册）
+# 5. 其他数据库错误
+app.add_exception_handler(SQLAlchemyError, db_exception_handler)
+# 6. 所有未捕获的异常 → 兜底处理器（最后注册）
 app.add_exception_handler(Exception, global_exception_handler)
 
 @app.get("/")
