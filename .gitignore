@@ -53,3 +53,8 @@ uploads/
 API_DESIGN_ANALYSIS.md  
 RESPONSE_FORMAT.md
 SMOKE_TEST_REPORT.md
+
+#unit_test
+unit_test/
+test.db
+report/
