@@ -4,7 +4,6 @@ CRUD operations for Reward model.
 from sqlalchemy.orm import Session
 from app.models.reward import Reward, RewardStatus
 from app.schemas.reward import RewardCreate, RewardUpdate
-from datetime import datetime
 
 def create_reward(db: Session, reward: RewardCreate):
     db_reward = Reward(
