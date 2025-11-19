@@ -35,7 +35,7 @@ class ApiResponse(BaseModel, Generic[T]):
         from_attributes = True
 
 
-def success_response(data: Any = None, message: str = "操作成功") -> JSONResponse:
+def success_response(data: Any = None, message: str = "操作成功") -> dict:
     """
     创建成功响应
     
