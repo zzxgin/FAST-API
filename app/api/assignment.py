@@ -8,7 +8,8 @@ from app.schemas.assignment import AssignmentCreate, AssignmentRead, AssignmentU
 from app.crud.assignment import create_assignment, get_assignment, get_assignments_by_user, update_assignment
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.core.response import success_response
+from app.core.response import success_response, ApiResponse
+from typing import List
 import os
 
 UPLOAD_DIR = "uploads/assignments"
@@ -16,7 +17,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 router = APIRouter(prefix="/api/assignment", tags=["assignment"])
 
-@router.post("/accept")
+@router.post("/accept", response_model=ApiResponse[AssignmentRead])
 def accept_task(assignment: AssignmentCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Accept a task and create an assignment.
@@ -27,7 +28,7 @@ def accept_task(assignment: AssignmentCreate, db: Session = Depends(get_db), cur
         raise HTTPException(status_code=400, detail="任务已被接取或不可用")
     return success_response(data=AssignmentRead.from_orm(created), message="接取任务成功")
 
-@router.get("/{assignment_id}")
+@router.get("/{assignment_id}", response_model=ApiResponse[AssignmentRead])
 def get_assignment_detail(assignment_id: int, db: Session = Depends(get_db)):
     """
     Get assignment detail by ID.
@@ -37,7 +38,7 @@ def get_assignment_detail(assignment_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Assignment not found")
     return success_response(data=AssignmentRead.from_orm(assignment), message="获取成功")
 
-@router.get("/user/{user_id}")
+@router.get("/user/{user_id}", response_model=ApiResponse[List[AssignmentRead]])
 def list_assignments_by_user(user_id: int, db: Session = Depends(get_db)):
     """
     List all assignments for a user.
@@ -48,7 +49,7 @@ def list_assignments_by_user(user_id: int, db: Session = Depends(get_db)):
         message="获取成功"
     )
 
-@router.post("/submit/{assignment_id}")
+@router.post("/submit/{assignment_id}", response_model=ApiResponse[AssignmentRead])
 def submit_assignment(
     assignment_id: int,
     submit_content: str = Form(None),
@@ -83,7 +84,7 @@ def submit_assignment(
     updated = update_assignment(db, assignment_id, update)
     return success_response(data=AssignmentRead.from_orm(updated), message="提交成功")
 
-@router.patch("/{assignment_id}/progress")
+@router.patch("/{assignment_id}/progress", response_model=ApiResponse[AssignmentRead])
 def update_assignment_progress(
     assignment_id: int,
     update: AssignmentUpdate,

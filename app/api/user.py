@@ -8,17 +8,17 @@ All endpoints returning ORM objects must use `UserRead.from_orm(obj)` to ensure 
 """
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.schemas.user import UserCreate, UserRead, UserLogin
 from app.crud.user import create_user, authenticate_user, get_user_by_username
-from app.core.security import create_access_token, get_current_user, require_role
+from app.core.security import create_access_token, get_current_user
 from app.core.database import get_db
-from app.core.response import success_response
+from app.core.response import success_response, ApiResponse
 
 router = APIRouter(prefix="/api/user", tags=["user"])
 
-@router.post("/register")
+@router.post("/register", response_model=ApiResponse[UserRead])
 def register(user: UserCreate, db: Session = Depends(get_db)):
     """Register a new user.
 
@@ -58,7 +58,7 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     access_token = create_access_token({"sub": db_user.username})
     return success_response(data={"access_token": access_token, "token_type": "bearer"}, message="登录成功")
 
-@router.get("/me")
+@router.get("/me", response_model=ApiResponse[UserRead])
 def read_me(current_user = Depends(get_current_user)):
     """Get current authenticated user's info.
 
@@ -70,7 +70,7 @@ def read_me(current_user = Depends(get_current_user)):
     """
     return success_response(data=UserRead.from_orm(current_user), message="获取成功")
 
-@router.get("/info/{username}")
+@router.get("/info/{username}", response_model=ApiResponse[UserRead])
 def get_user_info(username: str, db: Session = Depends(get_db)):
     """Get user info by username.
 
