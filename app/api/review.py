@@ -8,11 +8,12 @@ from app.schemas.review import ReviewCreate, ReviewRead, ReviewUpdate
 from app.crud.review import create_review, get_review, get_reviews_by_assignment, update_review
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.core.response import success_response
+from app.core.response import success_response, ApiResponse
+from typing import List
 
 router = APIRouter(prefix="/api/review", tags=["review"])
 
-@router.post("/submit")
+@router.post("/submit", response_model=ApiResponse[ReviewRead])
 def submit_review(review: ReviewCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Submit a review for a task assignment.
@@ -23,7 +24,7 @@ def submit_review(review: ReviewCreate, db: Session = Depends(get_db), current_u
     created = create_review(db, review, reviewer_id=current_user.id)
     return success_response(data=ReviewRead.from_orm(created), message="审核提交成功")
 
-@router.get("/{review_id}")
+@router.get("/{review_id}", response_model=ApiResponse[ReviewRead])
 def get_review_detail(review_id: int, db: Session = Depends(get_db)):
     """
     Get review detail by ID.
@@ -33,7 +34,7 @@ def get_review_detail(review_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Review not found")
     return success_response(data=ReviewRead.from_orm(review), message="获取成功")
 
-@router.get("/assignment/{assignment_id}")
+@router.get("/assignment/{assignment_id}", response_model=ApiResponse[List[ReviewRead]])
 def list_reviews_by_assignment(assignment_id: int, db: Session = Depends(get_db)):
     """
     List all reviews for a specific assignment.
@@ -44,7 +45,7 @@ def list_reviews_by_assignment(assignment_id: int, db: Session = Depends(get_db)
         message="获取成功"
     )
 
-@router.put("/{review_id}")
+@router.put("/{review_id}", response_model=ApiResponse[ReviewRead])
 def update_review_detail(review_id: int, review_update: ReviewUpdate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Update review result or comment.
@@ -57,7 +58,7 @@ def update_review_detail(review_id: int, review_update: ReviewUpdate, db: Sessio
         raise HTTPException(status_code=404, detail="Review not found")
     return success_response(data=ReviewRead.from_orm(review), message="更新成功")
 
-@router.post("/appeal/{assignment_id}")
+@router.post("/appeal/{assignment_id}", response_model=ApiResponse[ReviewRead])
 def appeal_assignment(assignment_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Submit an appeal for a task assignment.

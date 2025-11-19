@@ -10,7 +10,6 @@ from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR, HTTP_400_BAD_REQUEST
 
-from app.core.errors import BusinessError, ErrorCode
 from app.core.response import error_response
 
 
@@ -33,7 +32,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     return JSONResponse(
         status_code=HTTP_500_INTERNAL_SERVER_ERROR,
         content=error_response(
-            code=ErrorCode.INTERNAL_SERVER_ERROR,
+            code=HTTP_500_INTERNAL_SERVER_ERROR,
             message="服务器内部错误，请稍后重试"
         )
     )
@@ -52,27 +51,6 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException) ->
     """
     logger.warning(f"HTTP exception at {request.url}: {exc.status_code} - {exc.detail}")
     
-    # 如果是权限相关错误（401, 403）
-    if exc.status_code in [401, 403]:
-        return JSONResponse(
-            status_code=exc.status_code,
-            content=error_response(
-                code=ErrorCode.PERMISSION_DENIED,
-                message=exc.detail or "权限不足"
-            )
-        )
-    
-    # 如果是未找到资源（404）
-    if exc.status_code == 404:
-        return JSONResponse(
-            status_code=exc.status_code,
-            content=error_response(
-                code=ErrorCode.INVALID_PARAMETER,
-                message=exc.detail or "请求的资源不存在"
-            )
-        )
-    
-    # 其他 HTTP 异常使用原始 detail
     return JSONResponse(
         status_code=exc.status_code,
         content=error_response(
@@ -109,7 +87,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=422,
         content=error_response(
-            code=ErrorCode.VALIDATION_ERROR,
+            code=422,
             message="请求数据验证失败",
             data={"errors": formatted_errors}
         )
@@ -142,7 +120,7 @@ async def db_integrity_exception_handler(request: Request, exc: IntegrityError) 
     return JSONResponse(
         status_code=409,
         content=error_response(
-            code=ErrorCode.DATABASE_ERROR,
+            code=409,
             message=message
         )
     )
@@ -163,46 +141,8 @@ async def db_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONRe
     return JSONResponse(
         status_code=HTTP_500_INTERNAL_SERVER_ERROR,
         content=error_response(
-            code=ErrorCode.DATABASE_ERROR,
+            code=HTTP_500_INTERNAL_SERVER_ERROR,
             message="数据库操作失败，请稍后重试"
         )
     )
 
-
-async def business_exception_handler(request: Request, exc: BusinessError) -> JSONResponse:
-    """
-    处理业务逻辑异常
-    
-    Args:
-        request: FastAPI 请求对象
-        exc: BusinessError 实例
-    
-    Returns:
-        包含业务错误信息的 JSON 响应
-    """
-    logger.warning(f"Business exception at {request.url}: [{exc.code}] {exc.message}")
-    
-    # 根据错误代码决定 HTTP 状态码
-    status_code = HTTP_400_BAD_REQUEST
-    
-    # 权限相关错误使用 403
-    if exc.code in [ErrorCode.PERMISSION_DENIED, ErrorCode.USER_INACTIVE]:
-        status_code = 403
-    # 认证相关错误使用 401
-    elif exc.code in [ErrorCode.INVALID_TOKEN, ErrorCode.TOKEN_EXPIRED, ErrorCode.INVALID_CREDENTIALS]:
-        status_code = 401
-    # 资源不存在使用 404
-    elif "NOT_FOUND" in str(exc.code):
-        status_code = 404
-    # 冲突相关错误使用 409
-    elif "ALREADY_EXISTS" in str(exc.code):
-        status_code = 409
-    
-    return JSONResponse(
-        status_code=status_code,
-        content=error_response(
-            code=int(exc.code),
-            message=exc.message,
-            data=exc.data
-        )
-    )

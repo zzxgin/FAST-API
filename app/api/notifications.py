@@ -7,12 +7,12 @@ from app.schemas.notification import NotificationCreate, NotificationRead, Notif
 from app.crud.notification import create_notification, get_notification, get_notifications_by_user, update_notification
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.core.response import success_response
+from app.core.response import success_response, ApiResponse
 from typing import List
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
-@router.post("/send")
+@router.post("/send", response_model=ApiResponse[NotificationRead])
 def send_notification(notification: NotificationCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Send a notification to a user.
@@ -23,7 +23,7 @@ def send_notification(notification: NotificationCreate, db: Session = Depends(ge
     created = create_notification(db, notification)
     return success_response(data=NotificationRead.from_orm(created), message="通知发送成功")
 
-@router.get("/user/{user_id}")
+@router.get("/user/{user_id}", response_model=ApiResponse[List[NotificationRead]])
 def list_notifications_by_user(user_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     List all notifications for a user.
@@ -37,7 +37,7 @@ def list_notifications_by_user(user_id: int, db: Session = Depends(get_db), curr
         message="获取成功"
     )
 
-@router.patch("/{notification_id}/read")
+@router.patch("/{notification_id}/read", response_model=ApiResponse[NotificationRead])
 def mark_notification_read(notification_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Mark a notification as read.

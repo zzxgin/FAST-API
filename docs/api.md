@@ -1,5 +1,34 @@
 # User & Auth API Documentation (F2-T1)
 
+## 📋 统一响应格式
+
+所有接口返回统一的标准化格式：
+
+### 成功响应
+```json
+{
+  "code": 0,
+  "message": "操作成功",
+  "data": { /* 实际数据 */ }
+}
+```
+
+### 错误响应
+```json
+{
+  "code": 400,  // HTTP 状态码
+  "message": "错误描述",
+  "data": null
+}
+```
+
+**说明**：
+- `code`: 0 表示成功，非 0 表示错误（通常为 HTTP 状态码）
+- `message`: 操作结果的中文描述
+- `data`: 实际返回的业务数据，失败时为 null
+
+---
+
 ## User APIs
 
 ### POST /api/user/register
@@ -1154,6 +1183,295 @@ UserTaskStats:
     monthly_completed:
       type: integer
 ```
+
+---
+
+# Admin APIs (管理后台)
+
+## 用户管理
+
+### GET /api/admin/users
+```
+@openapi
+summary: Get users list (Admin only)
+security:
+  - bearerAuth: []
+parameters:
+  - in: query
+    name: skip
+    required: false
+    schema:
+      type: integer
+      default: 0
+  - in: query
+    name: limit
+    required: false
+    schema:
+      type: integer
+      default: 100
+responses:
+  200:
+    description: List of users
+    content:
+      application/json:
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUserItem'
+  403:
+    description: Admin privileges required
+```
+
+### PUT /api/admin/users/{user_id}
+```
+@openapi
+summary: Update user info (role, active status)
+security:
+  - bearerAuth: []
+parameters:
+  - in: path
+    name: user_id
+    required: true
+    schema:
+      type: integer
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/AdminUserUpdate'
+responses:
+  200:
+    description: User updated successfully
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/AdminUserItem'
+  403:
+    description: Admin privileges required
+  404:
+    description: User not found
+```
+
+## 任务管理
+
+### GET /api/admin/tasks
+```
+@openapi
+summary: Get tasks list (Admin only)
+security:
+  - bearerAuth: []
+parameters:
+  - in: query
+    name: skip
+    required: false
+    schema:
+      type: integer
+      default: 0
+  - in: query
+    name: limit
+    required: false
+    schema:
+      type: integer
+      default: 100
+responses:
+  200:
+    description: List of tasks
+    content:
+      application/json:
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminTaskItem'
+  403:
+    description: Admin privileges required
+```
+
+### PUT /api/admin/tasks/{task_id}
+```
+@openapi
+summary: Update task status (Admin only)
+security:
+  - bearerAuth: []
+parameters:
+  - in: path
+    name: task_id
+    required: true
+    schema:
+      type: integer
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/AdminTaskUpdate'
+responses:
+  200:
+    description: Task updated successfully
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/AdminTaskItem'
+  400:
+    description: No update fields provided
+  403:
+    description: Admin privileges required
+  404:
+    description: Task not found
+```
+
+### POST /api/admin/tasks/{task_id}/flag
+```
+@openapi
+summary: Flag a task as risky (Admin only)
+security:
+  - bearerAuth: []
+parameters:
+  - in: path
+    name: task_id
+    required: true
+    schema:
+      type: integer
+responses:
+  200:
+    description: Task flagged successfully
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/AdminTaskItem'
+  403:
+    description: Admin privileges required
+  404:
+    description: Task not found
+```
+
+## 统计数据
+
+### GET /api/admin/statistics
+```
+@openapi
+summary: Get site statistics (Admin only)
+security:
+  - bearerAuth: []
+responses:
+  200:
+    description: Site statistics overview
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/SiteStatistics'
+  403:
+    description: Admin privileges required
+```
+
+---
+
+## Admin Components (Schema Reference)
+
+### AdminUserItem
+```
+@openapi
+AdminUserItem:
+  type: object
+  properties:
+    id:
+      type: integer
+    username:
+      type: string
+    email:
+      type: string
+    role:
+      type: string
+      enum: [user, publisher, admin]
+    is_active:
+      type: boolean
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+```
+
+### AdminUserUpdate
+```
+@openapi
+AdminUserUpdate:
+  type: object
+  properties:
+    role:
+      type: string
+      enum: [user, publisher, admin]
+      nullable: true
+    is_active:
+      type: boolean
+      nullable: true
+```
+
+### AdminTaskItem
+```
+@openapi
+AdminTaskItem:
+  type: object
+  properties:
+    id:
+      type: integer
+    title:
+      type: string
+    description:
+      type: string
+    reward_amount:
+      type: number
+      format: float
+    publisher_id:
+      type: integer
+    status:
+      type: string
+      enum: [open, in_progress, pending_review, completed, closed]
+    flagged:
+      type: boolean
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+```
+
+### AdminTaskUpdate
+```
+@openapi
+AdminTaskUpdate:
+  type: object
+  properties:
+    status:
+      type: string
+      enum: [open, in_progress, pending_review, completed, closed]
+      nullable: true
+```
+
+### SiteStatistics
+```
+@openapi
+SiteStatistics:
+  type: object
+  properties:
+    total_users:
+      type: integer
+    total_tasks:
+      type: integer
+    total_assignments:
+      type: integer
+    total_rewards_issued:
+      type: number
+      format: float
+    active_users:
+      type: integer
+    pending_reviews:
+      type: integer
+```
+
+---
 
 ### Security Schemes
 ```

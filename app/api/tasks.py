@@ -9,12 +9,12 @@ from app.schemas.task import TaskCreate, TaskRead, TaskUpdate
 from app.crud.task import create_task, get_task, get_tasks, update_task, accept_task, search_tasks, get_task_list
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.core.response import success_response
-
+from app.core.response import success_response, ApiResponse
+from typing import List
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
-@router.post("/publish")
+@router.post("/publish", response_model=ApiResponse[TaskRead])
 def publish_task(task: TaskCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Publish a new task.
@@ -25,7 +25,7 @@ def publish_task(task: TaskCreate, db: Session = Depends(get_db), current_user =
     created = create_task(db, task, publisher_id=current_user.id)
     return success_response(data=TaskRead.from_orm(created), message="任务发布成功")
 
-@router.get("/search/")
+@router.get("/search/", response_model=ApiResponse[List[TaskRead]])
 def search_task(
     keyword: str,
     skip: int = 0,
@@ -41,7 +41,7 @@ def search_task(
         message="搜索成功"
     )
 
-@router.get("/{task_id}")
+@router.get("/{task_id}", response_model=ApiResponse[TaskRead])
 def get_task_detail(task_id: int, db: Session = Depends(get_db)):
     """
     Get task detail by ID.
@@ -51,7 +51,7 @@ def get_task_detail(task_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Task not found")
     return success_response(data=TaskRead.from_orm(task), message="获取成功")
 
-@router.get("/")
+@router.get("/", response_model=ApiResponse[List[TaskRead]])
 def list_tasks(
     skip: int = 0,
     limit: int = 20,
@@ -68,7 +68,7 @@ def list_tasks(
         message="获取成功"
     )
 
-@router.put("/{task_id}")
+@router.put("/{task_id}", response_model=ApiResponse[TaskRead])
 def update_task_detail(task_id: int, task_update: TaskUpdate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Update task info (title, description, reward_amount, status).
@@ -81,7 +81,7 @@ def update_task_detail(task_id: int, task_update: TaskUpdate, db: Session = Depe
         raise HTTPException(status_code=404, detail="Task not found")
     return success_response(data=TaskRead.from_orm(task), message="更新成功")
 
-@router.post("/accept/{task_id}")
+@router.post("/accept/{task_id}", response_model=ApiResponse[TaskRead])
 def accept_task_api(task_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Accept a task (change status to accepted).
