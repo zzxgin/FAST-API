@@ -24,6 +24,5 @@ class User(Base):
     password_hash = Column(String(128), nullable=False)
     email = Column(String(128))
     role = Column(Enum(UserRole), default=UserRole.user)
-    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

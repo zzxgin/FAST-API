@@ -18,14 +18,12 @@ def get_user(db: Session, user_id: int) -> Optional[User]:
     return db.query(User).filter(User.id == user_id).first()
 
 
-def update_user(db: Session, user_id: int, role: Optional[UserRole] = None, is_active: Optional[bool] = None):
+def update_user(db: Session, user_id: int, role: Optional[UserRole] = None):
     user = get_user(db, user_id)
     if not user:
         return None
     if role is not None:
         user.role = role
-    if is_active is not None:
-        user.is_active = is_active
     db.commit()
     db.refresh(user)
     return user
@@ -63,7 +61,6 @@ def flag_task(db: Session, task_id: int, flagged: bool = True):
 
 def get_site_statistics(db: Session) -> SiteStatistics:
     total_users = db.query(func.count(User.id)).scalar() or 0
-    active_users = db.query(func.count(User.id)).filter(User.is_active == True).scalar() or 0
     total_tasks = db.query(func.count(Task.id)).scalar() or 0
     open_tasks = db.query(func.count(Task.id)).filter(Task.status == TaskStatus.open).scalar() or 0
     in_progress_tasks = db.query(func.count(Task.id)).filter(Task.status == TaskStatus.in_progress).scalar() or 0
@@ -73,7 +70,6 @@ def get_site_statistics(db: Session) -> SiteStatistics:
 
     return SiteStatistics(
         total_users=int(total_users),
-        active_users=int(active_users),
         total_tasks=int(total_tasks),
         open_tasks=int(open_tasks),
         in_progress_tasks=int(in_progress_tasks),

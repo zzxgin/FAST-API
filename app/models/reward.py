@@ -19,3 +19,4 @@ class Reward(Base):
     amount = Column(Float, nullable=False)
     status = Column(Enum(RewardStatus), default=RewardStatus.pending)
     issued_time = Column(DateTime)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
