@@ -11,7 +11,6 @@ class AdminUserItem(BaseModel):
     username: str
     email: Optional[str]
     role: UserRole
-    is_active: bool
     created_at: Optional[datetime]
 
     class Config:
@@ -20,7 +19,6 @@ class AdminUserItem(BaseModel):
 
 class AdminUserUpdate(BaseModel):
     role: Optional[UserRole] = None
-    is_active: Optional[bool] = None
 
 
 class AdminTaskItem(BaseModel):
@@ -43,7 +41,6 @@ class AdminTaskUpdate(BaseModel):
 
 class SiteStatistics(BaseModel):
     total_users: int
-    active_users: int
     total_tasks: int
     open_tasks: int
     in_progress_tasks: int

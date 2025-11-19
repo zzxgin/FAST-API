@@ -1225,7 +1225,7 @@ responses:
 ### PUT /api/admin/users/{user_id}
 ```
 @openapi
-summary: Update user info (role, active status)
+summary: Update user info (role)
 security:
   - bearerAuth: []
 parameters:
@@ -1383,8 +1383,6 @@ AdminUserItem:
     role:
       type: string
       enum: [user, publisher, admin]
-    is_active:
-      type: boolean
     created_at:
       type: string
       format: date-time
@@ -1402,9 +1400,6 @@ AdminUserUpdate:
     role:
       type: string
       enum: [user, publisher, admin]
-      nullable: true
-    is_active:
-      type: boolean
       nullable: true
 ```
 
@@ -1460,13 +1455,15 @@ SiteStatistics:
       type: integer
     total_tasks:
       type: integer
+    open_tasks:
+      type: integer
+    in_progress_tasks:
+      type: integer
     total_assignments:
       type: integer
     total_rewards_issued:
       type: number
       format: float
-    active_users:
-      type: integer
     pending_reviews:
       type: integer
 ```

@@ -49,16 +49,16 @@ def list_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), _
 
 @router.put("/users/{user_id}", response_model=ApiResponse[AdminUserItem])
 def update_user(user_id: int, update: AdminUserUpdate, db: Session = Depends(get_db), _=Depends(admin_only)):
-    """Update user role and active status.
+    """Update user role.
     
     Args:
         user_id: User ID to update
-        update: Update data (role, is_active)
+        update: Update data (role)
     
     Returns:
         Updated user information
     """
-    user = crud_admin.update_user(db, user_id, role=update.role, is_active=update.is_active)
+    user = crud_admin.update_user(db, user_id, role=update.role)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return success_response(data=user, message="更新成功")
@@ -119,7 +119,7 @@ def site_statistics(db: Session = Depends(get_db), _=Depends(admin_only)):
     """Get site-wide statistics and metrics.
     
     Provides comprehensive platform statistics for admin dashboard,
-    including total users, tasks, assignments, rewards issued, active users,
+    including total users, tasks, assignments, rewards issued,
     and pending reviews count.
     
     Args:
@@ -130,10 +130,11 @@ def site_statistics(db: Session = Depends(get_db), _=Depends(admin_only)):
         SiteStatistics object containing:
             - total_users: Total registered users
             - total_tasks: Total published tasks
+            - open_tasks: Tasks with open status
+            - in_progress_tasks: Tasks in progress
             - total_assignments: Total task assignments
-            - total_rewards_issued: Sum of all issued rewards
-            - active_users: Users active in current period
             - pending_reviews: Assignments awaiting review
+            - total_rewards_issued: Sum of all issued rewards
     """
     stats = crud_admin.get_site_statistics(db)
     return success_response(data=stats, message="获取成功")

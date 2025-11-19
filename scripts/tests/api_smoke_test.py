@@ -23,7 +23,7 @@ def print_result(name, resp):
 def get_token(username, password):
     resp = requests.post(f"{BASE_URL}/api/user/login", json={"username": username, "password": password})
     if resp.status_code == 200:
-        return resp.json()["access_token"]
+        return resp.json()["data"]["access_token"]
     return None
 
 def auth_header(token):
@@ -249,3 +249,37 @@ print_result("Get User Task Records (pagination)", resp)
 print("Testing user center - admin access to user center...")
 resp = requests.get(f"{BASE_URL}/api/user/statistics", headers=auth_header(admin_token))
 print_result("Admin Get User Statistics", resp)
+
+# --- Admin API Tests ---
+print("\n=== Testing Admin APIs ===")
+
+print("Testing admin - get users list...")
+resp = requests.get(f"{BASE_URL}/api/admin/users?skip=0&limit=10", headers=auth_header(admin_token))
+print_result("Admin Get Users List", resp)
+
+print("Testing admin - update user role...")
+user_update = {"role": "publisher"}
+resp = requests.put(f"{BASE_URL}/api/admin/users/1", json=user_update, headers=auth_header(admin_token))
+print_result("Admin Update User Role", resp)
+
+print("Testing admin - get tasks list...")
+resp = requests.get(f"{BASE_URL}/api/admin/tasks?skip=0&limit=10", headers=auth_header(admin_token))
+print_result("Admin Get Tasks List", resp)
+
+if task_id:
+    print("Testing admin - update task status...")
+    task_update = {"status": "completed"}
+    resp = requests.put(f"{BASE_URL}/api/admin/tasks/{task_id}", json=task_update, headers=auth_header(admin_token))
+    print_result("Admin Update Task Status", resp)
+
+    print("Testing admin - flag task as risky...")
+    resp = requests.post(f"{BASE_URL}/api/admin/tasks/{task_id}/flag", headers=auth_header(admin_token))
+    print_result("Admin Flag Task", resp)
+
+print("Testing admin - get site statistics...")
+resp = requests.get(f"{BASE_URL}/api/admin/statistics", headers=auth_header(admin_token))
+print_result("Admin Get Site Statistics", resp)
+
+print("Testing admin - non-admin access (should fail)...")
+resp = requests.get(f"{BASE_URL}/api/admin/users", headers=auth_header(user_token))
+print_result("Non-admin Access to Admin API (should be 403)", resp)
