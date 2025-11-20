@@ -3,7 +3,7 @@ Auth API routes for authentication and authorization.
 
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from app.core.security import get_current_user
 from app.schemas.user import UserRead
 from app.core.response import success_response
