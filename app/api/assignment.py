@@ -2,7 +2,7 @@
 TaskAssignment API routes for accepting, submitting, and managing assignments.
 All endpoints use OpenAPI English doc comments.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from app.schemas.assignment import AssignmentCreate, AssignmentRead, AssignmentUpdate
 from app.crud.assignment import create_assignment, get_assignment, get_assignments_by_user, update_assignment

@@ -3,7 +3,7 @@ All endpoints use OpenAPI English doc comments.
 """
 
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -24,18 +24,17 @@ def admin_only(user = Depends(get_current_user)):
 
 
 @router.get("/users", response_model=ApiResponse[List[AdminUserItem]])
-def list_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), _=Depends(admin_only)):
+def list_users(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=1000, description="Number of records to return"),
+    db: Session = Depends(get_db),
+    _=Depends(admin_only)
+):
     """
     Get all users list with pagination.
     - Admin only.
-    - Max skip: 10000, Max limit: 1000
+    - Max limit: 100
     """
-    MAX_SKIP = 10000
-    MAX_LIMIT = 1000
-    if skip < 0 or skip > MAX_SKIP:
-        raise HTTPException(status_code=400, detail=f"skip 必须在 0-{MAX_SKIP} 之间")
-    if limit < 1 or limit > MAX_LIMIT:
-        raise HTTPException(status_code=400, detail=f"limit 必须在 1-{MAX_LIMIT} 之间")
     users = crud_admin.list_users(db, skip=skip, limit=limit)
     return success_response(data=users, message="获取成功")
 
@@ -53,19 +52,17 @@ def update_user(user_id: int, update: AdminUserUpdate, db: Session = Depends(get
 
 
 @router.get("/tasks", response_model=ApiResponse[List[AdminTaskItem]])
-def list_tasks(skip: int = 0, limit: int = 1000, db: Session = Depends(get_db), _=Depends(admin_only)):
+def list_tasks(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=1000, description="Number of records to return"),
+    db: Session = Depends(get_db),
+    _=Depends(admin_only)
+):
     """
     Get all tasks list with pagination.
     - Admin only.
-    - Max skip: 10000, Max limit: 1000
+    - Max limit: 1000
     """
-    MAX_SKIP = 10000
-    MAX_LIMIT = 1000
-    if skip < 0 or skip > MAX_SKIP:
-        raise HTTPException(status_code=400, detail=f"skip 必须在 0-{MAX_SKIP} 之间")
-    if limit < 1 or limit > MAX_LIMIT:
-        raise HTTPException(status_code=400, detail=f"limit 必须在 1-{MAX_LIMIT} 之间")
-    
     tasks = crud_admin.list_tasks(db, skip=skip, limit=limit)
     return success_response(data=tasks, message="获取成功")
 

@@ -6,7 +6,7 @@ All endpoints use OpenAPI English doc comments.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.schemas.task import TaskCreate, TaskRead, TaskUpdate
-from app.crud.task import create_task, get_task, get_tasks, update_task, accept_task, search_tasks, get_task_list
+from app.crud.task import create_task, get_task, update_task, accept_task, search_tasks, get_task_list
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.response import success_response, ApiResponse

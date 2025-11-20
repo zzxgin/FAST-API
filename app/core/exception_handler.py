@@ -1,6 +1,6 @@
-"""
-全局异常处理器模块
-处理所有 FastAPI 应用中的异常，并返回统一的错误响应格式
+"""Global exception handler module.
+
+Handles all exceptions in FastAPI application and returns unified error response format.
 """
 import logging
 from fastapi import Request, HTTPException
@@ -13,20 +13,19 @@ from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR, HTTP_400_BAD_REQUES
 from app.core.response import error_response
 
 
-# 配置日志
+# Configure logging
 logger = logging.getLogger(__name__)
 
 
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """
-    处理所有未捕获的异常
+    """Handle all unhandled exceptions.
     
     Args:
-        request: FastAPI 请求对象
-        exc: 异常实例
+        request: FastAPI request object.
+        exc: Exception instance.
     
     Returns:
-        包含错误信息的 JSON 响应
+        JSONResponse containing error information.
     """
     logger.error(f"Unhandled exception at {request.url}: {exc}", exc_info=True)
     return JSONResponse(
@@ -39,15 +38,14 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 
 async def custom_http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
-    """
-    处理 HTTP 异常（如 404, 403 等）
+    """Handle HTTP exceptions (e.g., 404, 403).
     
     Args:
-        request: FastAPI 请求对象
-        exc: HTTPException 实例
+        request: FastAPI request object.
+        exc: HTTPException instance.
     
     Returns:
-        包含错误信息的 JSON 响应
+        JSONResponse containing error information.
     """
     logger.warning(f"HTTP exception at {request.url}: {exc.status_code} - {exc.detail}")
     
@@ -61,20 +59,19 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException) ->
 
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
-    """
-    处理请求数据验证错误（422）
+    """Handle request validation errors (422).
     
     Args:
-        request: FastAPI 请求对象
-        exc: RequestValidationError 实例
+        request: FastAPI request object.
+        exc: RequestValidationError instance.
     
     Returns:
-        包含详细验证错误信息的 JSON 响应
+        JSONResponse containing detailed validation error information.
     """
     errors = exc.errors()
     logger.warning(f"Validation error at {request.url}: {errors}")
     
-    # 格式化验证错误信息
+    # Format validation error messages
     formatted_errors = []
     for error in errors:
         field = " -> ".join(str(loc) for loc in error["loc"])
@@ -95,19 +92,18 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 async def db_integrity_exception_handler(request: Request, exc: IntegrityError) -> JSONResponse:
-    """
-    处理数据库完整性约束错误（如唯一键冲突）
+    """Handle database integrity constraint errors (e.g., unique key violations).
     
     Args:
-        request: FastAPI 请求对象
-        exc: IntegrityError 实例
+        request: FastAPI request object.
+        exc: IntegrityError instance.
     
     Returns:
-        包含错误信息的 JSON 响应
+        JSONResponse containing error information.
     """
     logger.error(f"Database integrity error at {request.url}: {exc}")
     
-    # 尝试提取更友好的错误消息
+    # Try to extract more friendly error message
     error_msg = str(exc.orig) if hasattr(exc, 'orig') else str(exc)
     
     if "Duplicate entry" in error_msg or "UNIQUE constraint" in error_msg:
@@ -127,15 +123,14 @@ async def db_integrity_exception_handler(request: Request, exc: IntegrityError) 
 
 
 async def db_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
-    """
-    处理其他 SQLAlchemy 数据库错误
+    """Handle other SQLAlchemy database errors.
     
     Args:
-        request: FastAPI 请求对象
-        exc: SQLAlchemyError 实例
+        request: FastAPI request object.
+        exc: SQLAlchemyError instance.
     
     Returns:
-        包含错误信息的 JSON 响应
+        JSONResponse containing error information.
     """
     logger.error(f"Database error at {request.url}: {exc}", exc_info=True)
     return JSONResponse(

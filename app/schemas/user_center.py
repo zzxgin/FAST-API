@@ -4,7 +4,7 @@ Defines schemas for user profile, task records, and statistics.
 """
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel,EmailStr
 from app.models.user import UserRole
 from app.models.task import TaskStatus
 from app.models.assignment import AssignmentStatus
@@ -13,7 +13,7 @@ from app.models.reward import RewardStatus
 
 class UserProfileUpdate(BaseModel):
     """Schema for updating user profile."""
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
     # TODO: Add more profile fields as needed (avatar, bio, etc.)
 
 
@@ -21,7 +21,7 @@ class UserProfileResponse(BaseModel):
     """Schema for user profile response."""
     id: int
     username: str
-    email: Optional[str]
+    email: Optional[EmailStr]=None
     role: UserRole
     created_at: datetime
     updated_at: datetime
