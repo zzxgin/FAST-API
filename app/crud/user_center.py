@@ -6,7 +6,7 @@ Provides functions for user profile management, task records, and statistics.
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, extract, case
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from app.models.user import User
 from app.models.task import Task, TaskStatus

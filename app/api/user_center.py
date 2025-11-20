@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.response import success_response, ApiResponse
 from app.models.user import User
 from app.schemas.user_center import (
     UserProfileUpdate,
@@ -24,7 +25,7 @@ from app.crud import user_center as crud_user_center
 router = APIRouter()
 
 
-@router.get("/profile", response_model=UserProfileResponse)
+@router.get("/profile", response_model=ApiResponse[UserProfileResponse])
 async def get_user_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -37,10 +38,10 @@ async def get_user_profile(
     user = crud_user_center.get_user_profile(db, current_user.id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    return success_response(data=user, message="获取成功")
 
 
-@router.put("/profile", response_model=UserProfileResponse)
+@router.put("/profile", response_model=ApiResponse[UserProfileResponse])
 async def update_user_profile(
     profile_update: UserProfileUpdate,
     current_user: User = Depends(get_current_user),
@@ -57,10 +58,10 @@ async def update_user_profile(
     user = crud_user_center.update_user_profile(db, current_user.id, profile_update)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    return success_response(data=user, message="更新成功")
 
 
-@router.get("/tasks", response_model=List[UserTaskRecord])
+@router.get("/tasks", response_model=ApiResponse[List[UserTaskRecord]])
 async def get_user_tasks(
     status: Optional[str] = Query(None, description="Filter by assignment status"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -78,12 +79,13 @@ async def get_user_tasks(
     Returns:
         List of user's task records
     """
-    return crud_user_center.get_user_task_records(
+    tasks = crud_user_center.get_user_task_records(
         db, current_user.id, status=status, skip=skip, limit=limit
     )
+    return success_response(data=tasks, message="获取成功")
 
 
-@router.get("/published-tasks", response_model=List[UserPublishedTask])
+@router.get("/published-tasks", response_model=ApiResponse[List[UserPublishedTask]])
 async def get_user_published_tasks(
     status: Optional[str] = Query(None, description="Filter by task status"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -101,12 +103,13 @@ async def get_user_published_tasks(
     Returns:
         List of user's published tasks
     """
-    return crud_user_center.get_user_published_tasks(
+    tasks = crud_user_center.get_user_published_tasks(
         db, current_user.id, status=status, skip=skip, limit=limit
     )
+    return success_response(data=tasks, message="获取成功")
 
 
-@router.get("/rewards", response_model=List[UserRewardRecord])
+@router.get("/rewards", response_model=ApiResponse[List[UserRewardRecord]])
 async def get_user_rewards(
     status: Optional[str] = Query(None, description="Filter by reward status"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -124,12 +127,13 @@ async def get_user_rewards(
     Returns:
         List of user's reward records
     """
-    return crud_user_center.get_user_rewards(
+    rewards = crud_user_center.get_user_rewards(
         db, current_user.id, status=status, skip=skip, limit=limit
     )
+    return success_response(data=rewards, message="获取成功")
 
 
-@router.get("/statistics", response_model=UserStatistics)
+@router.get("/statistics", response_model=ApiResponse[UserStatistics])
 async def get_user_statistics(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -139,10 +143,11 @@ async def get_user_statistics(
     Returns:
         User statistics overview
     """
-    return crud_user_center.get_user_statistics(db, current_user.id)
+    stats = crud_user_center.get_user_statistics(db, current_user.id)
+    return success_response(data=stats, message="获取成功")
 
 
-@router.get("/task-stats", response_model=UserTaskStats)
+@router.get("/task-stats", response_model=ApiResponse[UserTaskStats])
 async def get_user_task_stats(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -152,4 +157,5 @@ async def get_user_task_stats(
     Returns:
         Detailed task statistics
     """
-    return crud_user_center.get_user_task_stats(db, current_user.id)
+    stats = crud_user_center.get_user_task_stats(db, current_user.id)
+    return success_response(data=stats, message="获取成功")

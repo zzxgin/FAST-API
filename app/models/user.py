@@ -5,6 +5,7 @@ Defines the User ORM model and role enumeration for database mapping.
 
 from typing import Optional
 from sqlalchemy import Column, Integer, String, Enum, DateTime
+from sqlalchemy import Boolean
 from app.models import Base
 import enum
 from datetime import datetime

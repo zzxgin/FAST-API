@@ -16,6 +16,7 @@ class AssignmentCreate(AssignmentBase):
 class AssignmentUpdate(BaseModel):
     submit_content: Optional[str] = None
     status: Optional[AssignmentStatus] = None
+    submit_time: Optional[datetime] = None
     review_time: Optional[datetime] = None
 
 class AssignmentRead(AssignmentBase):

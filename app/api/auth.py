@@ -3,13 +3,14 @@ Auth API routes for authentication and authorization.
 
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from app.core.security import get_current_user
 from app.schemas.user import UserRead
+from app.core.response import success_response
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-@router.get("/role/{role}", response_model=UserRead)
+@router.get("/role/{role}")
 def check_role(role: str, current_user = Depends(get_current_user)):
     """
     Check if the current user has the specified role.
@@ -20,4 +21,4 @@ def check_role(role: str, current_user = Depends(get_current_user)):
     """
     if current_user.role.value != role:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
-    return UserRead.from_orm(current_user)
+    return success_response(data=UserRead.from_orm(current_user), message="权限验证成功")
