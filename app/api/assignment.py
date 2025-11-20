@@ -76,7 +76,6 @@ def submit_assignment(
             f.write(file.file.read())
         submit_content = file_path
     
-    # 更新提交内容和提交时间
     update = AssignmentUpdate(
         submit_content=submit_content,
         submit_time=datetime.utcnow()

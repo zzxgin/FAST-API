@@ -3,13 +3,13 @@ Task Pydantic schemas for API validation.
 """
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.models.task import TaskStatus
 
 class TaskBase(BaseModel):
     title: str
     description: Optional[str] = None
-    reward_amount: float
+    reward_amount: float = Field(gt=0, description="Reward amount must be positive")
 
 class TaskCreate(TaskBase):
     pass
@@ -17,7 +17,7 @@ class TaskCreate(TaskBase):
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    reward_amount: Optional[float] = None
+    reward_amount: Optional[float] = Field(None, gt=0, description="Reward amount must be positive")
     status: Optional[TaskStatus] = None
 
 class TaskRead(TaskBase):
