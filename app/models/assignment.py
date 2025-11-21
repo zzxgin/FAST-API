@@ -10,10 +10,13 @@ from app.models.user import User
 from app.models.task import Task
 
 class AssignmentStatus(enum.Enum):
-    pending_review = "pending_review"
-    approved = "approved"
-    rejected = "rejected"
+    task_pending = "task_pending"
+    user_approved = "user_approved"
+    user_rejected = "user_rejected"
     appealing = "appealing"
+    task_completed = "task_completed"
+    task_reject="task_reject"
+    task_progress = "task_progress"
 
 class TaskAssignment(Base):
     __tablename__ = "task_assignments"
