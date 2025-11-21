@@ -27,10 +27,11 @@
 - id（主键，自增）
 - task_id（外键，关联 tasks.id）
 - user_id（外键，关联 users.id）
-- submit_content
-- submit_time
+- submit_content（提交内容）
+- submit_time（提交时间）
 - status（待审核/任务已接收/任务已拒绝/用户申诉/提交任务已通过/提交任务被拒绝/任务进行中）
-- review_time
+- review_time（审核时间）
+- created_at（接取创建时间）
 
 ### 奖励结算表（rewards） 中间表
 - id（主键，自增）
