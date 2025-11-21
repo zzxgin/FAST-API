@@ -11,8 +11,8 @@ from app.models.task import Task
 
 class AssignmentStatus(enum.Enum):
     task_pending = "task_pending"
-    user_approved = "user_approved"
-    user_rejected = "user_rejected"
+    task_receive = "task_receive"
+    task_receivement_rejected = "task_receivement_rejected"
     appealing = "appealing"
     task_completed = "task_completed"
     task_reject="task_reject"

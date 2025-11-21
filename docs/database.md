@@ -23,16 +23,16 @@
 - created_at
 - updated_at
 
-### 任务接取表（task_assignments）
+### 任务接取表（task_assignments）中间表
 - id（主键，自增）
 - task_id（外键，关联 tasks.id）
 - user_id（外键，关联 users.id）
 - submit_content
 - submit_time
-- status（待审核/已通过/未通过）
+- status（待审核/任务已接收/任务已拒绝/用户申诉/提交任务已通过/提交任务被拒绝/任务进行中）
 - review_time
 
-### 奖励结算表（rewards）
+### 奖励结算表（rewards） 中间表
 - id（主键，自增）
 - assignment_id（外键，关联 task_assignments.id）
 - amount
@@ -41,7 +41,7 @@
 
 ### 申诉/审核表（reviews）
 - id（主键，自增）
-- assignment_id（外键，关联 task_assignments.id）
+- assignment_id（外键，关联 task_assignments.id） 中间表
 - reviewer_id（外键，关联 users.id）
 - review_result（通过/不通过/申诉中）
 - review_comment
