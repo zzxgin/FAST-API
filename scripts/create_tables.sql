@@ -49,7 +49,7 @@ CREATE TABLE task_assignments (
     user_id INT NOT NULL,
     submit_content TEXT,
     submit_time TIMESTAMP NULL,
-    status ENUM('pending_review', 'approved', 'rejected', 'appealing') NOT NULL DEFAULT 'pending_review',
+    status ENUM('task_pending', 'task_receive', 'task_receivement_rejected', 'appealing', 'task_completed', 'task_reject') NOT NULL DEFAULT 'task_pending',
     review_time TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_task_id (task_id),
