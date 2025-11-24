@@ -21,7 +21,15 @@ def submit_review(review: ReviewCreate, db: Session = Depends(get_db), current_u
     """
     if current_user.role.value != "admin":
         raise HTTPException(status_code=403, detail="Only admin can submit reviews")
-    created = create_review(db, review, reviewer_id=current_user.id)
+
+    try:
+        created = create_review(db, review, reviewer_id=current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+    if not created:
+        raise HTTPException(status_code=409, detail="已提交过相同的审核，无需重复提交")
+
     return success_response(data=ReviewRead.from_orm(created), message="审核提交成功")
 
 @router.get("/{review_id}", response_model=ApiResponse[ReviewRead])
@@ -74,8 +82,8 @@ def appeal_assignment(assignment_id: int, db: Session = Depends(get_db), current
         raise HTTPException(status_code=404, detail="Assignment not found")
     if assignment.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only assignment owner can appeal")
-    # State flow: Only approved/rejected assignments can be appealed
-    if assignment.status not in [AssignmentStatus.approved, AssignmentStatus.rejected]:
+    # State flow: Only task_completed/task_reject assignments can be appealed
+    if assignment.status not in [AssignmentStatus.task_completed, AssignmentStatus.task_reject]:
         raise HTTPException(status_code=400, detail="Assignment not eligible for appeal")
     # Update assignment status to appealing
     update_assignment(db, assignment_id, AssignmentUpdate(status=AssignmentStatus.appealing))

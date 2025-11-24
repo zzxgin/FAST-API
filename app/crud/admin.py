@@ -153,7 +153,7 @@ def get_site_statistics(db: Session) -> SiteStatistics:
         func.count(TaskAssignment.id).label('total_assignments'),
         func.sum(
             case(
-                [(TaskAssignment.status == AssignmentStatus.pending_review.value, 1)],
+                [(TaskAssignment.status == AssignmentStatus.task_pending.value, 1)],
                 else_=0
             )
         ).label('pending_reviews')

@@ -132,7 +132,7 @@ def get_user_published_tasks(db: Session, user_id: int, status: Optional[str] = 
         func.count(TaskAssignment.id).label('total_assignments'),
         func.sum(
             case(
-                (TaskAssignment.status == AssignmentStatus.pending_review, 1),
+                (TaskAssignment.status == AssignmentStatus.task_pending, 1),
                 else_=0
             )
         ).label('pending_reviews')
@@ -243,7 +243,7 @@ def get_user_statistics(db: Session, user_id: int) -> UserStatistics:
     total_tasks_completed = db.query(TaskAssignment).filter(
         and_(
             TaskAssignment.user_id == user_id,
-            TaskAssignment.status == AssignmentStatus.approved
+            TaskAssignment.status == AssignmentStatus.task_completed
         )
     ).count()
 
@@ -305,21 +305,21 @@ def get_user_task_stats(db: Session, user_id: int) -> UserTaskStats:
     completed_tasks = db.query(TaskAssignment).filter(
         and_(
             TaskAssignment.user_id == user_id,
-            TaskAssignment.status == AssignmentStatus.approved
+            TaskAssignment.status == AssignmentStatus.task_completed
         )
     ).count()
 
     pending_tasks = db.query(TaskAssignment).filter(
         and_(
             TaskAssignment.user_id == user_id,
-            TaskAssignment.status == AssignmentStatus.pending_review
+            TaskAssignment.status == AssignmentStatus.task_pending
         )
     ).count()
 
     rejected_tasks = db.query(TaskAssignment).filter(
         and_(
             TaskAssignment.user_id == user_id,
-            TaskAssignment.status == AssignmentStatus.rejected
+            TaskAssignment.status == AssignmentStatus.task_reject
         )
     ).count()
 
@@ -377,7 +377,7 @@ def get_user_task_stats(db: Session, user_id: int) -> UserTaskStats:
     monthly_completed = db.query(TaskAssignment).filter(
         and_(
             TaskAssignment.user_id == user_id,
-            TaskAssignment.status == AssignmentStatus.approved,
+            TaskAssignment.status == AssignmentStatus.task_completed,
             TaskAssignment.review_time >= current_month
         )
     ).count()

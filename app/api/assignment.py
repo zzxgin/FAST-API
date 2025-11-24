@@ -4,6 +4,7 @@ All endpoints use OpenAPI English doc comments.
 """
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from app.schemas.assignment import AssignmentCreate, AssignmentRead, AssignmentUpdate
 from app.crud.assignment import create_assignment, get_assignment, get_assignments_by_user, update_assignment
 from app.core.database import get_db
@@ -22,10 +23,29 @@ def accept_task(assignment: AssignmentCreate, db: Session = Depends(get_db), cur
     """
     Accept a task and create an assignment.
     - Any authenticated user can accept a task.
+    - Cannot accept the same task twice.
+    - Cannot accept own published task.
+    - Only 'open' status tasks can be accepted.
     """
-    created = create_assignment(db, assignment, user_id=current_user.id)
-    if not created:
-        raise HTTPException(status_code=400, detail="任务已被接取或不可用")
+    try:
+        created = create_assignment(db, assignment, user_id=current_user.id)
+    except ValueError as e:
+        error_msg = str(e)
+        # Determine appropriate status code based on error message
+        if "not found" in error_msg:
+            raise HTTPException(status_code=404, detail=error_msg)
+        elif "already accepted" in error_msg or "cannot accept your own" in error_msg:
+            raise HTTPException(status_code=409, detail=error_msg)
+        elif "not available" in error_msg:
+            raise HTTPException(status_code=400, detail=error_msg)
+        else:
+            raise HTTPException(status_code=400, detail=error_msg)
+    except IntegrityError as e:
+        # Handle foreign key constraint failures
+        if "foreign key constraint" in str(e).lower():
+            raise HTTPException(status_code=404, detail=f"Task with id {assignment.task_id} not found")
+        raise HTTPException(status_code=409, detail="Database integrity error")
+    
     return success_response(data=AssignmentRead.from_orm(created), message="接取任务成功")
 
 @router.get("/{assignment_id}", response_model=ApiResponse[AssignmentRead])
@@ -60,8 +80,10 @@ def submit_assignment(
     """
     Submit assignment result (text or file).
     - Only assignment owner can submit.
+    - Status changes from 'task_receive' to 'task_pending' after submission.
     """
     from datetime import datetime
+    from app.models.assignment import AssignmentStatus
     
     assignment = get_assignment(db, assignment_id)
     if not assignment:
@@ -76,9 +98,11 @@ def submit_assignment(
             f.write(file.file.read())
         submit_content = file_path
     
+    # Update status to task_pending when submitting
     update = AssignmentUpdate(
         submit_content=submit_content,
-        submit_time=datetime.utcnow()
+        submit_time=datetime.utcnow(),
+        status=AssignmentStatus.task_pending  # 提交后状态变为待审核
     )
     updated = update_assignment(db, assignment_id, update)
     return success_response(data=AssignmentRead.from_orm(updated), message="提交成功")

@@ -15,8 +15,7 @@ class AssignmentStatus(enum.Enum):
     task_receivement_rejected = "task_receivement_rejected"
     appealing = "appealing"
     task_completed = "task_completed"
-    task_reject="task_reject"
-    task_progress = "task_progress"
+    task_reject = "task_reject"
 
 class TaskAssignment(Base):
     __tablename__ = "task_assignments"
@@ -25,7 +24,7 @@ class TaskAssignment(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     submit_content = Column(Text)
     submit_time = Column(DateTime)
-    status = Column(Enum(AssignmentStatus), default=AssignmentStatus.pending_review)
+    status = Column(Enum(AssignmentStatus), default=AssignmentStatus.task_pending)
     review_time = Column(DateTime)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     user = relationship("User")

@@ -67,11 +67,11 @@ def create_review(db: Session, review: ReviewCreate, reviewer_id: int):
             if task:
                 task_title = task.title
         if review.review_result == "approved":
-            update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.approved, review_time=db_review.review_time))
+            update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_completed, review_time=db_review.review_time))
             content = NOTIFICATION_TEMPLATES["review_approved"].format(task_title=task_title or "")
             create_notification(db, NotificationCreate(user_id=assignment.user_id, content=content))
         elif review.review_result == "rejected":
-            update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.rejected, review_time=db_review.review_time))
+            update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_reject, review_time=db_review.review_time))
             reason = review.review_comment or ""
             content = NOTIFICATION_TEMPLATES["review_rejected"].format(task_title=task_title or "", reason=reason)
             create_notification(db, NotificationCreate(user_id=assignment.user_id, content=content))
