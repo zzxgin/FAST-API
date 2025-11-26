@@ -61,3 +61,14 @@ def authenticate_user(db: Session, username: str, password: str):
     if not pwd_context.verify(password, user.password_hash):
         return None
     return user
+
+def get_first_admin(db: Session):
+    """Retrieve the first admin user.
+
+    Args:
+        db: SQLAlchemy session.
+
+    Returns:
+        User instance or None.
+    """
+    return db.query(User).filter(User.role == UserRole.admin).order_by(User.id.asc()).first()
