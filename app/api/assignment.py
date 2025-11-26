@@ -10,8 +10,15 @@ from app.crud.assignment import create_assignment, get_assignment, get_assignmen
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.response import success_response, ApiResponse
+from app.crud.review import create_review
+from app.models.review import ReviewType, ReviewResult
+from app.models.user import User, UserRole
+from app.schemas.review import ReviewCreate
 from typing import List
 import os
+from app.models.assignment import AssignmentStatus
+from app.models.user import User, UserRole
+    
 
 UPLOAD_DIR = "uploads/assignments"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -46,7 +53,18 @@ def accept_task(assignment: AssignmentCreate, db: Session = Depends(get_db), cur
             raise HTTPException(status_code=404, detail=f"Task with id {assignment.task_id} not found")
         raise HTTPException(status_code=409, detail="Database integrity error")
     
-    return success_response(data=AssignmentRead.from_orm(created), message="接取任务成功")
+    admin_reviewer = db.query(User).filter(User.role == UserRole.admin).order_by(User.id.asc()).first()
+    if admin_reviewer:
+        review_in = ReviewCreate(
+            assignment_id=created.id,
+            review_result=ReviewResult.pending,
+            review_type=ReviewType.acceptance_review,
+            review_comment="自动生成接取任务待审核记录"
+        )
+        pending_review = create_review(db, review_in, reviewer_id=admin_reviewer.id)
+        return success_response(data=AssignmentRead.from_orm(created), message=f"接取任务成功，已生成待审核记录 review_id={pending_review.id}")
+    else:
+        return success_response(data=AssignmentRead.from_orm(created), message="接取任务成功（未找到管理员，暂未生成待审核记录）")
 
 @router.get("/{assignment_id}", response_model=ApiResponse[AssignmentRead])
 def get_assignment_detail(assignment_id: int, db: Session = Depends(get_db)):
@@ -98,14 +116,24 @@ def submit_assignment(
             f.write(file.file.read())
         submit_content = file_path
     
-    # Update status to task_pending when submitting
+    # 更新状态到 assignment_submission_pending（进入作业审核待处理阶段）
     update = AssignmentUpdate(
         submit_content=submit_content,
         submit_time=datetime.utcnow(),
-        status=AssignmentStatus.task_pending  # 提交后状态变为待审核
+        status=AssignmentStatus.assignment_submission_pending
     )
     updated = update_assignment(db, assignment_id, update)
-    return success_response(data=AssignmentRead.from_orm(updated), message="提交成功")
+
+    admin_reviewer = db.query(User).filter(User.role == UserRole.admin).order_by(User.id.asc()).first()
+    if admin_reviewer:
+        review_in = ReviewCreate(
+            assignment_id=updated.id,
+            review_result=ReviewResult.pending,
+            review_type=ReviewType.submission_review,
+            review_comment="自动生成作业提交待审核记录"
+        )
+        create_review(db, review_in, reviewer_id=admin_reviewer.id)
+    return success_response(data=AssignmentRead.from_orm(updated), message="提交成功，已生成待审核记录")
 
 @router.patch("/{assignment_id}/progress", response_model=ApiResponse[AssignmentRead])
 def update_assignment_progress(
@@ -125,3 +153,45 @@ def update_assignment_progress(
         raise HTTPException(status_code=403, detail="No permission to update this assignment")
     updated = update_assignment(db, assignment_id, update)
     return success_response(data=AssignmentRead.from_orm(updated), message="更新成功")
+
+@router.post("/appeal/{assignment_id}", response_model=ApiResponse[AssignmentRead])
+def appeal_assignment(
+    assignment_id: int,
+    appeal_reason: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Appeal an assignment result.
+    - Only assignment owner can appeal.
+    - Only 'task_completed' or 'task_reject' status assignments can be appealed.
+    - Status changes to 'appealing' after appeal.
+    """
+    assignment = get_assignment(db, assignment_id)
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    if assignment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="No permission to appeal this assignment")
+    
+    if assignment.status not in [AssignmentStatus.task_completed, AssignmentStatus.task_reject]:
+        raise HTTPException(status_code=400, detail="Only completed or rejected assignments can be appealed")
+    
+    # Update status to appealing
+    update = AssignmentUpdate(
+        status=AssignmentStatus.appealing
+    )
+    updated = update_assignment(db, assignment_id, update)
+
+    # Create appeal review record
+    admin_reviewer = db.query(User).filter(User.role == UserRole.admin).order_by(User.id.asc()).first()
+    if admin_reviewer:
+        review_in = ReviewCreate(
+            assignment_id=updated.id,
+            review_result=ReviewResult.pending,
+            review_type=ReviewType.appeal_review,
+            review_comment=f"用户申诉: {appeal_reason}"
+        )
+        create_review(db, review_in, reviewer_id=admin_reviewer.id)
+    #这里可以发送通知给管理员
+    
+    return success_response(data=AssignmentRead.from_orm(updated), message="申诉提交成功，已生成待审核记录")

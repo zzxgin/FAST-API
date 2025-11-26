@@ -373,6 +373,16 @@ responses:
 ```
 @openapi
 summary: Submit a review for a task assignment
+description: |
+  根据 review_type 执行不同业务逻辑：
+  - acceptance_review（接取审核，管理员）：
+    - approved: assignment -> task_receive, task -> in_progress
+    - rejected: assignment -> task_receivement_rejected
+  - submission_review（作业审核，管理员）：
+    - approved: assignment -> task_completed, task -> completed, 创建 Reward(pending)
+    - rejected: assignment -> task_reject，任务保持 in_progress（若之前标记为 completed 则回滚）
+  - appeal_review（申诉，作业拥有者）：
+    - assignment -> appealing
 security:
   - bearerAuth: []
 requestBody:
@@ -389,34 +399,9 @@ responses:
         schema:
           $ref: '#/components/schemas/ReviewRead'
   403:
-    description: Only admin can submit reviews
+    description: Permission denied (role or owner check failed)
   400:
-    description: Duplicate or invalid review
-```
-
-### POST /api/review/appeal/{assignment_id}
-```
-@openapi
-summary: Submit an appeal for a task assignment
-security:
-  - bearerAuth: []
-parameters:
-  - in: path
-    name: assignment_id
-    required: true
-    schema:
-      type: integer
-responses:
-  200:
-    description: Appeal submitted successfully
-    content:
-      application/json:
-        schema:
-          $ref: '#/components/schemas/ReviewRead'
-  403:
-    description: Only assignment owner can appeal
-  400:
-    description: Assignment not eligible for appeal or duplicate appeal
+    description: Invalid review type or business state
 ```
 
 ### GET /api/review/assignment/{assignment_id}
@@ -464,7 +449,17 @@ responses:
 ### PUT /api/review/{review_id}
 ```
 @openapi
-summary: Update review info
+summary: Update review info and apply review result
+description: |
+  管理员更新审核结果（通过/拒绝），用于人工审核。
+  - 仅允许更新当前为 pending 状态的 review
+  - acceptance_review:
+    - approved: assignment -> task_receive, task -> in_progress, 若无 Reward 则创建 Reward(pending)
+    - rejected: assignment -> task_receivement_rejected
+  - submission_review:
+    - approved: assignment -> task_completed, task -> completed, Reward(pending|none) -> issued
+    - rejected: assignment -> task_reject, task -> in_progress（如果之前标记为 completed）
+  - appeal_review: 目前仅支持备注更新，不改变业务状态
 security:
   - bearerAuth: []
 parameters:
@@ -481,7 +476,7 @@ requestBody:
         $ref: '#/components/schemas/ReviewUpdate'
 responses:
   200:
-    description: Review updated successfully
+    description: Review updated successfully and business state applied
     content:
       application/json:
         schema:
@@ -490,6 +485,8 @@ responses:
     description: Only admin can update reviews
   404:
     description: Review not found
+  400:
+    description: Invalid review state or business rule violation
 ```
 
 ### POST /api/assignment/accept
@@ -1183,8 +1180,119 @@ UserTaskStats:
     monthly_completed:
       type: integer
 ```
+### ReviewCreate
+```
+@openapi
+ReviewCreate:
+type: object
+properties:
+assignment_id:
+type: integer
+review_type:
+type: string
+enum: [acceptance_review, submission_review, appeal_review]
+review_result:
+type: string
+enum: [pending, approved, rejected, appealing]
+review_comment:
+type: string
+nullable: true
+```
+### ReviewUpdate
+```
+@openapi
+ReviewUpdate:
+type: object
+properties:
+review_result:
+type: string
+enum: [approved, rejected]
+nullable: true
+review_comment:
+type: string
+nullable: true
+```
+### ReviewRead
+```
+@openapi
+ReviewRead:
+type: object
+properties:
+id:
+type: integer
+assignment_id:
+type: integer
+reviewer_id:
+type: integer
+review_type:
+type: string
+enum: [acceptance_review, submission_review, appeal_review]
+review_result:
+type: string
+enum: [pending, approved, rejected, appealing]
+review_comment:
+type: string
+nullable: true
+review_time:
+type: string
+format: date-time
+```
+### RewardCreate
+```
+@openapi
+RewardCreate:
+  type: object
+  properties:
+    assignment_id:
+      type: integer
+    amount:
+      type: number
+      format: float
+    status:
+      type: string
+      enum: [pending, issued, failed]
+```
 
----
+### RewardUpdate
+```
+@openapi
+RewardUpdate:
+  type: object
+  properties:
+    status:
+      type: string
+      enum: [pending, issued, failed]
+      nullable: true
+    issued_time:
+      type: string
+      format: date-time
+      nullable: true
+```
+
+### RewardRead
+```
+@openapi
+RewardRead:
+  type: object
+  properties:
+    id:
+      type: integer
+    assignment_id:
+      type: integer
+    amount:
+      type: number
+      format: float
+    status:
+      type: string
+      enum: [pending, issued, failed]
+    issued_time:
+      type: string
+      format: date-time
+      nullable: true
+    created_at:
+      type: string
+      format: date-time
+```
 
 # Admin APIs (管理后台)
 

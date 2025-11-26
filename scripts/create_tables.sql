@@ -49,7 +49,7 @@ CREATE TABLE task_assignments (
     user_id INT NOT NULL,
     submit_content TEXT,
     submit_time TIMESTAMP NULL,
-    status ENUM('task_pending', 'task_receive', 'task_receivement_rejected', 'appealing', 'task_completed', 'task_reject') NOT NULL DEFAULT 'task_pending',
+    status ENUM('task_pending', 'task_receive', 'task_receivement_rejected', 'appealing', 'assignment_submission_pending', 'task_completed', 'task_reject') NOT NULL DEFAULT 'task_pending',
     review_time TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_task_id (task_id),
@@ -66,14 +66,16 @@ CREATE TABLE reviews (
     assignment_id INT NOT NULL,
     reviewer_id INT NOT NULL,
     review_result ENUM('pending', 'approved', 'rejected', 'appealing') NOT NULL DEFAULT 'pending',
+    review_type ENUM('acceptance_review', 'submission_review', 'appeal_review') NOT NULL DEFAULT 'submission_review',
     review_comment TEXT,
     review_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_assignment_id (assignment_id),
     INDEX idx_reviewer_id (reviewer_id),
     INDEX idx_review_result (review_result),
+    INDEX idx_review_type (review_type),
     FOREIGN KEY (assignment_id) REFERENCES task_assignments(id) ON DELETE CASCADE,
     FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT = 'Reviews table - stores task review information';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT = 'Reviews table - stores task review information (acceptance_review, submission_review, appeal_review)';
 
 -- Create rewards table
 CREATE TABLE rewards (

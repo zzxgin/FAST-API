@@ -4,11 +4,12 @@ Review Pydantic schemas for API validation.
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
-from app.models.review import ReviewResult
+from app.models.review import ReviewResult, ReviewType
 
 class ReviewBase(BaseModel):
     assignment_id: int
     review_result: ReviewResult
+    review_type: ReviewType
     review_comment: Optional[str] = None
 
 class ReviewCreate(ReviewBase):
@@ -25,3 +26,5 @@ class ReviewRead(ReviewBase):
 
     class Config:
         orm_mode = True
+        use_enum_values = True  
+
