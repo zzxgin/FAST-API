@@ -18,6 +18,7 @@ from typing import List
 import os
 from app.models.assignment import AssignmentStatus
 from app.models.user import User, UserRole
+from app.crud.user import get_first_admin
     
 
 UPLOAD_DIR = "uploads/assignments"
@@ -53,7 +54,7 @@ def accept_task(assignment: AssignmentCreate, db: Session = Depends(get_db), cur
             raise HTTPException(status_code=404, detail=f"Task with id {assignment.task_id} not found")
         raise HTTPException(status_code=409, detail="Database integrity error")
     
-    admin_reviewer = db.query(User).filter(User.role == UserRole.admin).order_by(User.id.asc()).first()
+    admin_reviewer = get_first_admin(db)
     if admin_reviewer:
         review_in = ReviewCreate(
             assignment_id=created.id,
@@ -63,9 +64,6 @@ def accept_task(assignment: AssignmentCreate, db: Session = Depends(get_db), cur
         )
         pending_review = create_review(db, review_in, reviewer_id=admin_reviewer.id)
         return success_response(data=AssignmentRead.from_orm(created), message=f"接取任务成功，已生成待审核记录 review_id={pending_review.id}")
-    else:
-        return success_response(data=AssignmentRead.from_orm(created), message="接取任务成功（未找到管理员，暂未生成待审核记录）")
-
 @router.get("/{assignment_id}", response_model=ApiResponse[AssignmentRead])
 def get_assignment_detail(assignment_id: int, db: Session = Depends(get_db)):
     """
@@ -124,7 +122,7 @@ def submit_assignment(
     )
     updated = update_assignment(db, assignment_id, update)
 
-    admin_reviewer = db.query(User).filter(User.role == UserRole.admin).order_by(User.id.asc()).first()
+    admin_reviewer = get_first_admin(db)
     if admin_reviewer:
         review_in = ReviewCreate(
             assignment_id=updated.id,
@@ -183,7 +181,7 @@ def appeal_assignment(
     updated = update_assignment(db, assignment_id, update)
 
     # Create appeal review record
-    admin_reviewer = db.query(User).filter(User.role == UserRole.admin).order_by(User.id.asc()).first()
+    admin_reviewer = get_first_admin(db)
     if admin_reviewer:
         review_in = ReviewCreate(
             assignment_id=updated.id,

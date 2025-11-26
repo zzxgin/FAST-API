@@ -2,28 +2,23 @@
 Review API routes for review, appeal, and arbitration.
 All endpoints use OpenAPI English doc comments.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.schemas.review import ReviewCreate, ReviewRead, ReviewUpdate
-from app.crud.review import create_review, get_review, get_reviews_by_assignment, update_review, list_reviews, get_pending_review
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.response import success_response, ApiResponse
-from app.models.review import Review, ReviewType, ReviewResult
 from typing import List, Optional
-
+from app.models.review import  ReviewType, ReviewResult
 from app.models.assignment import TaskAssignment, AssignmentStatus
 from app.models.task import Task, TaskStatus
-from app.models.reward import Reward, RewardStatus
 from app.crud.assignment import get_assignment, update_assignment
 from app.crud.task import update_task
-from app.crud.reward import update_reward
+from app.crud.review import create_review, get_review, get_reviews_by_assignment, update_review, list_reviews, get_pending_review
+from app.crud.notification import create_notification
 from app.schemas.assignment import AssignmentUpdate
 from app.schemas.task import TaskUpdate
-from app.schemas.reward import RewardCreate, RewardUpdate
-from app.crud.notification import create_notification
 from app.schemas.notification import NotificationCreate
-from app.crud.reward import create_reward
 from datetime import datetime
 
 router = APIRouter(prefix="/api/review", tags=["review"])
@@ -60,13 +55,6 @@ def apply_review_action(
             if task.status == TaskStatus.open:
                 update_task(db, task.id, TaskUpdate(status=TaskStatus.in_progress))
 
-            # 接取审核通过时创建 Reward（pending）
-            existing_reward = db.query(Reward).filter(Reward.assignment_id == assignment.id).first()
-            if not existing_reward:
-                create_reward(db, RewardCreate(
-                    assignment_id=assignment.id,
-                    amount=task.reward_amount
-                ))
 
             notification_content = f"您接取任务《{task.title}》的申请已通过，可以开始做任务了！"
         
@@ -87,23 +75,6 @@ def apply_review_action(
                 review_time=datetime.utcnow()
             ))
             update_task(db, task.id, TaskUpdate(status=TaskStatus.completed))
-
-            reward = db.query(Reward).filter(Reward.assignment_id == assignment.id).first()
-            if reward:
-                update_reward(db, reward.id, RewardUpdate(status=RewardStatus.issued))
-            else:
-                create_reward(db, RewardCreate(
-                    assignment_id=assignment.id,
-                    amount=task.reward_amount
-                ))
-                # Note: create_reward sets status to pending by default, we might need to update it to issued immediately
-                # But wait, create_reward implementation: status=RewardStatus.pending
-                # So we need to fetch and update it if we just created it, or modify create_reward to accept status.
-                # For now, let's just update it after creation if needed.
-                new_reward = db.query(Reward).filter(Reward.assignment_id == assignment.id).first()
-                if new_reward:
-                     update_reward(db, new_reward.id, RewardUpdate(status=RewardStatus.issued))
-
             notification_content = f"恭喜！您提交的任务《{task.title}》作业已通过审核，奖励发放中..."
         
         elif new_result == ReviewResult.rejected:
@@ -118,69 +89,6 @@ def apply_review_action(
 
             reason = f"，原因：{comment}" if comment else ""
             notification_content = f"您提交的任务《{task.title}》作业未通过审核{reason}，可以申诉"
-
-    # === 申诉审核 (appeal_review) ===
-    elif review_type == ReviewType.appeal_review:
-        # Only toggle state if the decision has changed (e.g. Approved -> Rejected or vice versa)
-        # or if it's the first decision (Pending -> Approved/Rejected)
-        if new_result != old_result:
-            if new_result == ReviewResult.approved:
-                # Switching to Approved (User wins)
-                if task.status == TaskStatus.completed:
-                    # Case: Completed task appeal -> Re-open (User wants to redo?)
-                    update_task(db, task.id, TaskUpdate(status=TaskStatus.in_progress))
-                    update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_receive))
-                    reward = db.query(Reward).filter(Reward.assignment_id == assignment.id).first()
-                    if reward:
-                        update_reward(db, reward.id, RewardUpdate(status=RewardStatus.pending))
-                    notification_content = f"您的申诉已通过，任务《{task.title}》已重置，请重新提交。"
-                
-                elif task.status == TaskStatus.in_progress:
-                    # Case: Rejected task appeal -> Overturn rejection (User did good)
-                    update_task(db, task.id, TaskUpdate(status=TaskStatus.completed))
-                    update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_completed))
-                    reward = db.query(Reward).filter(Reward.assignment_id == assignment.id).first()
-                    if reward:
-                        update_reward(db, reward.id, RewardUpdate(status=RewardStatus.issued))
-                    else:
-                        create_reward(db, RewardCreate(
-                            assignment_id=assignment.id,
-                            amount=task.reward_amount
-                        ))
-                        new_reward = db.query(Reward).filter(Reward.assignment_id == assignment.id).first()
-                        if new_reward:
-                             update_reward(db, new_reward.id, RewardUpdate(status=RewardStatus.issued))
-                    notification_content = f"您的申诉已通过，任务《{task.title}》判定为合格，奖励已发放。"
-
-            elif new_result == ReviewResult.rejected:
-                # Switching to Rejected (User loses)
-                # Only toggle if we are undoing a previous Approval (Approved -> Rejected)
-                if old_result == ReviewResult.approved:
-                    if task.status == TaskStatus.in_progress:
-                        # Was "Redo" (Approved) -> Undo -> Back to Completed
-                        update_task(db, task.id, TaskUpdate(status=TaskStatus.completed))
-                        update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_completed))
-                        reward = db.query(Reward).filter(Reward.assignment_id == assignment.id).first()
-                        if reward:
-                            update_reward(db, reward.id, RewardUpdate(status=RewardStatus.issued))
-                        notification_content = f"您的申诉被拒绝，任务《{task.title}》维持完成状态。"
-                    
-                    elif task.status == TaskStatus.completed:
-                        # Was "Overturn" (Approved) -> Undo -> Back to In_Progress
-                        update_task(db, task.id, TaskUpdate(status=TaskStatus.in_progress))
-                        update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_receive))
-                        reward = db.query(Reward).filter(Reward.assignment_id == assignment.id).first()
-                        if reward:
-                            update_reward(db, reward.id, RewardUpdate(status=RewardStatus.pending))
-                        notification_content = f"您的申诉被拒绝，请继续完善任务《{task.title}》。"
-                else:
-                    # Pending -> Rejected or Rejected -> Rejected
-                    # State stays as is (Original State)
-                    if task.status == TaskStatus.completed:
-                         notification_content = f"您的申诉被拒绝，任务《{task.title}》维持完成状态。"
-                    elif task.status == TaskStatus.in_progress:
-                         notification_content = f"您的申诉被拒绝，请继续完善任务《{task.title}》。"
-    
     if notification_content:
         create_notification(db, NotificationCreate(
             user_id=assignment.user_id,
@@ -217,34 +125,12 @@ def submit_review(review: ReviewCreate, db: Session = Depends(get_db), current_u
     else:
         raise HTTPException(status_code=400, detail="Invalid review type")
 
-    # === 接取申请审核 (acceptance_review) ===
-    if review.review_type == ReviewType.acceptance_review:
-        if assignment.status != AssignmentStatus.task_pending:
-            raise HTTPException(status_code=400, detail="Only task_pending assignments can be reviewed")
-        if assignment.submit_content:
-            raise HTTPException(status_code=400, detail="This assignment has submission content, cannot review as acceptance")
-        
-        if review.review_result not in [ReviewResult.approved, ReviewResult.rejected]:
-             raise HTTPException(status_code=400, detail="Invalid review_result for acceptance review")
-
-    # === 作业提交审核 (submission_review) ===
-    elif review.review_type == ReviewType.submission_review:
-        if assignment.status != AssignmentStatus.assignment_submission_pending:
-            raise HTTPException(status_code=400, detail="Only assignment_submission_pending assignments can be reviewed")
-        if not assignment.submit_content:
-            raise HTTPException(status_code=400, detail="This assignment has no submission content, cannot review as submission")
-        
-        if review.review_result not in [ReviewResult.approved, ReviewResult.rejected]:
-             raise HTTPException(status_code=400, detail="Invalid review_result for submission review")
-
-    # === 申诉审核 (appeal_review) ===
-    elif review.review_type == ReviewType.appeal_review:
-        # Admin processing an appeal
-        if current_user.role.value != "admin":
-             raise HTTPException(status_code=403, detail="Only admin can review appeals")
-        
-        if assignment.status != AssignmentStatus.appealing:
-            raise HTTPException(status_code=400, detail="Assignment is not in appealing status")
+    # Validate preconditions
+    validate_review_preconditions(
+        review_type=review.review_type,
+        review_result=review.review_result,
+        assignment=assignment
+    )
 
     # Apply Business Logic
     apply_review_action(
@@ -289,7 +175,7 @@ def submit_review(review: ReviewCreate, db: Session = Depends(get_db), current_u
     return success_response(data=ReviewRead.from_orm(final_review), message=message)
 
 
-@router.get("", response_model=ApiResponse[List[ReviewRead]])
+@router.get("/list", response_model=ApiResponse[List[ReviewRead]])
 def list_reviews_api(
     skip: int = 0,
     limit: int = 20,
@@ -344,7 +230,7 @@ def list_reviews_by_assignment(assignment_id: int, db: Session = Depends(get_db)
         message="获取成功"
     )
 
-@router.put("/{review_id}", response_model=ApiResponse[ReviewRead])
+@router.post("/{review_id}", response_model=ApiResponse[ReviewRead])
 def update_review_detail(review_id: int, review_update: ReviewUpdate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """Update review and apply business logic (acceptance/submission on pending reviews)."""
     if current_user.role.value != "admin":
@@ -363,32 +249,16 @@ def update_review_detail(review_id: int, review_update: ReviewUpdate, db: Sessio
     new_result = review_update.review_result or db_review.review_result
     new_comment = review_update.review_comment if review_update.review_comment is not None else db_review.review_comment
 
-    # === 接取申请审核 (acceptance_review) ===
-    if db_review.review_type == ReviewType.acceptance_review:
-        if db_review.review_result == ReviewResult.pending and assignment.status != AssignmentStatus.task_pending:
-            raise HTTPException(status_code=400, detail="Only task_pending assignments can be reviewed for acceptance")
-        if assignment.submit_content:
-            raise HTTPException(status_code=400, detail="This assignment has submission content, cannot review as acceptance")
-        
-        if new_result not in [ReviewResult.approved, ReviewResult.rejected]:
-             raise HTTPException(status_code=400, detail="Invalid review_result for acceptance review (must be approved/rejected)")
-
-    # === 作业提交审核 (submission_review) ===
-    elif db_review.review_type == ReviewType.submission_review:
-        if db_review.review_result == ReviewResult.pending and assignment.status != AssignmentStatus.assignment_submission_pending:
-            raise HTTPException(status_code=400, detail="Only assignment_submission_pending assignments can be reviewed for submission")
-        if not assignment.submit_content:
-            raise HTTPException(status_code=400, detail="This assignment has no submission content, cannot review as submission")
-        
-        if new_result not in [ReviewResult.approved, ReviewResult.rejected]:
-             raise HTTPException(status_code=400, detail="Invalid review_result for submission review (must be approved/rejected)")
-
-    # === 申诉审核 (appeal_review) ===
-    elif db_review.review_type == ReviewType.appeal_review:
-        pass # No extra pre-checks needed for appeal update here
-
-    else:
+    if db_review.review_type not in [ReviewType.acceptance_review, ReviewType.submission_review, ReviewType.appeal_review]:
         raise HTTPException(status_code=400, detail="Invalid review type")
+
+    # Validate preconditions
+    validate_review_preconditions(
+        review_type=db_review.review_type,
+        review_result=new_result,
+        assignment=assignment,
+        old_review_result=db_review.review_result
+    )
 
     # Apply Business Logic
     apply_review_action(
@@ -410,3 +280,37 @@ def update_review_detail(review_id: int, review_update: ReviewUpdate, db: Sessio
 
 
     return success_response(data=ReviewRead.from_orm(updated_review), message="审核更新成功")
+
+def validate_review_preconditions(
+    review_type: ReviewType,
+    review_result: ReviewResult,
+    assignment: TaskAssignment,
+    old_review_result: ReviewResult = ReviewResult.pending
+):
+    """
+    Validate preconditions for review actions.
+    """
+    # === 接取申请审核 (acceptance_review) ===
+    if review_type == ReviewType.acceptance_review:
+        if old_review_result == ReviewResult.pending and assignment.status != AssignmentStatus.task_pending:
+            raise HTTPException(status_code=400, detail="Only task_pending assignments can be reviewed for acceptance")
+        if assignment.submit_content:
+            raise HTTPException(status_code=400, detail="This assignment has submission content, cannot review as acceptance")
+        
+        if review_result not in [ReviewResult.approved, ReviewResult.rejected]:
+             raise HTTPException(status_code=400, detail="Invalid review_result for acceptance review")
+
+    # === 作业提交审核 (submission_review) ===
+    elif review_type == ReviewType.submission_review:
+        if old_review_result == ReviewResult.pending and assignment.status != AssignmentStatus.assignment_submission_pending:
+            raise HTTPException(status_code=400, detail="Only assignment_submission_pending assignments can be reviewed for submission")
+        if not assignment.submit_content:
+            raise HTTPException(status_code=400, detail="This assignment has no submission content, cannot review as submission")
+        
+        if review_result not in [ReviewResult.approved, ReviewResult.rejected]:
+             raise HTTPException(status_code=400, detail="Invalid review_result for submission review")
+
+    # === 申诉审核 (appeal_review) ===
+    elif review_type == ReviewType.appeal_review:
+        if old_review_result == ReviewResult.pending and assignment.status != AssignmentStatus.appealing:
+            raise HTTPException(status_code=400, detail="Assignment is not in appealing status")
