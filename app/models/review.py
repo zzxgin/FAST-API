@@ -14,13 +14,18 @@ class ReviewResult(enum.Enum):
     approved = "approved"
     rejected = "rejected"
     appealing = "appealing"
-
+class ReviewType(enum.Enum):
+    """审核类型枚举"""
+    acceptance_review = "acceptance_review"  # 接取申请审核
+    submission_review = "submission_review"  # 作业提交审核
+    appeal_review = "appeal_review"  # 申诉审核
 class Review(Base):
     __tablename__ = "reviews"
     id = Column(Integer, primary_key=True, index=True)
     assignment_id = Column(Integer, ForeignKey("task_assignments.id"), nullable=False)
     reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     review_result = Column(Enum(ReviewResult), default=ReviewResult.pending)
+    review_type = Column(Enum(ReviewType), nullable=False)
     review_comment = Column(Text)
     review_time = Column(DateTime, default=datetime.utcnow)
     reviewer = relationship("User")

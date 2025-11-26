@@ -13,6 +13,7 @@ class AssignmentStatus(enum.Enum):
     task_pending = "task_pending"
     task_receive = "task_receive"
     task_receivement_rejected = "task_receivement_rejected"
+    assignment_submission_pending = "assignment_submission_pending"
     appealing = "appealing"
     task_completed = "task_completed"
     task_reject = "task_reject"

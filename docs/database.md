@@ -29,7 +29,7 @@
 - user_id（外键，关联 users.id）
 - submit_content
 - submit_time
-- status（task_pending:进行中/待审核 | task_receive:接取被接收 | task_receivement_rejected:接取被拒绝 | task_completed:任务已完成 | task_reject:提交被拒绝 | appealing:申诉中）
+- status（task_pending:进行中/待审核 | task_receive:接取被接收 | task_receivement_rejected:接取被拒绝 | task_submit_pending|task_completed:任务已完成 | task_reject:提交被拒绝 | appealing:申诉中）
 - review_time
 
 ### 奖励结算表（rewards） 中间表
@@ -44,9 +44,11 @@
 - id（主键，自增）
 - assignment_id（外键，关联 task_assignments.id） 中间表
 - reviewer_id（外键，关联 users.id）
-- review_result（通过/不通过/申诉中）
+- review_result（待审核/通过/不通过/申诉中）
 - review_comment（审核评语）
 - review_time（审核时间）
+- type (接取任务审核/提交任务审核/申诉)
+
 
 ### 消息通知表（notifications）
 - id（主键，自增）
@@ -219,6 +221,7 @@ TaskAssignment(A): [task_pending] ← 初始状态
 Task: [open] ← 保持开放，等待管理员审核
     ↓
 [管理员审核接取申请]
+review: [pending]
     ↓
     ├─ 接取通过 ────────────────────────────────┐
     │   TaskAssignment(A): [task_receive]        │
@@ -235,32 +238,27 @@ Task: [open] ← 保持开放，等待管理员审核
     │                 ├─ 审核通过 ───────────────┤
     │                 │   TaskAssignment(A): [task_completed]
     │                 │   Task: [completed] ← 任务完成
-    │                 │   Review: 不创建记录（正常审核）
+    │                 │   Review: 创建记录（正常审核）
     │                 │   Reward: [pending] → [issued]
-    │                 │   Notification: 发送"审核通过"通知
     │                 │                 ↓
     │                 │   [用户A可以申诉]
     │                 │                 ↓
     │                 │   TaskAssignment(A): [appealing]
     │                 │   Review: 创建申诉记录 [appealing]
-    │                 │   Notification: 发送"申诉已提交"通知
     │                 │
     │                 └─ 审核拒绝 ───────────────┤
     │                     TaskAssignment(A): [task_reject]
-    │                     Task: [open] ← 重新开放，允许其他用户接取
-    │                     Review: 不创建记录（正常审核）
-    │                     Notification: 发送"审核拒绝"通知
+    │                     Task: [is_progress] ← 如果提交未通过审核仍然保持为is_progress
+    │                     Review: 创建记录（正常审核）
     │                                 ↓
     │                     [用户A可以申诉]
     │                                 ↓
     │                     TaskAssignment(A): [appealing]
     │                     Review: 创建申诉记录 [appealing]
-    │                     Notification: 发送"申诉已提交"通知
     │
     └─ 接取拒绝
         TaskAssignment(A): [task_receivement_rejected]
         Task: [open] ← 保持开放，允许其他用户接取
-        Notification: 发送"接取拒绝"通知
 ```
 
 ### 4.2 Task 表状态流转图

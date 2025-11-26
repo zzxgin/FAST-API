@@ -28,7 +28,16 @@ def get_task_list(db: Session, skip: int = 0, limit: int = 20, status: str = Non
     if status:
         query = query.filter(Task.status == status)
     if order_by:
-        query = query.order_by(getattr(Task, order_by))
+        # 处理排序：支持 -field_name 表示降序
+        if order_by.startswith('-'):
+            # 降序：-created_at -> desc(Task.created_at)
+            field_name = order_by[1:]  # 去掉负号
+            if hasattr(Task, field_name):
+                query = query.order_by(getattr(Task, field_name).desc())
+        else:
+            # 升序：created_at -> asc(Task.created_at)
+            if hasattr(Task, order_by):
+                query = query.order_by(getattr(Task, order_by).asc())
     return query.offset(skip).limit(limit).all()
 
 def search_tasks(db: Session, keyword: str, skip: int = 0, limit: int = 20):
