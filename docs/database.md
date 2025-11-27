@@ -29,7 +29,7 @@
 - user_id（外键，关联 users.id）
 - submit_content
 - submit_time
-- status（task_pending:进行中/待审核 | task_receive:接取被接收 | task_receivement_rejected:接取被拒绝 | task_submit_pending|task_completed:任务已完成 | task_reject:提交被拒绝 | appealing:申诉中）
+- status（task_pending:进行中/待审核 | task_receive:接取被接收 | task_receivement_rejected:接取被拒绝 |assignment_submission_pending|task_completed:任务已完成 | task_reject:提交被拒绝 | appealing:申诉中）
 - review_time
 
 ### 奖励结算表（rewards） 中间表
@@ -47,7 +47,7 @@
 - review_result（待审核/通过/不通过/申诉中）
 - review_comment（审核评语）
 - review_time（审核时间）
-- type (接取任务审核/提交任务审核/申诉)
+- review_type(接取任务审核/提交任务审核/申诉)
 
 
 ### 消息通知表（notifications）
@@ -72,6 +72,7 @@
 - `task_pending` - 待审核：用户刚接取任务，等待管理员审核接取申请
 - `task_receive` - 接取通过：接取审核通过，用户可以开始做任务
 - `task_receivement_rejected` - 接取拒绝：接取审核被拒绝，不允许做任务
+- `task_submission_pending` - 提交审核中：提交作业后，等待管理员处理
 - `task_completed` - 已完成：作业审核通过，任务真正完成
 - `task_reject` - 提交拒绝：作业审核拒绝，质量不合格
 - `appealing` - 申诉中：用户对审核结果有异议，正在申诉
@@ -137,6 +138,7 @@ erDiagram
         string review_result
         string review_comment
         datetime review_time
+        string reviews_type
     }
     NOTIFICATIONS {
         int id PK
@@ -166,6 +168,7 @@ erDiagram
 | `task_pending` | 进行中/待审核 | 用户接取任务后的默认状态，包括正在做和已提交等待审核 |
 | `task_receive` | 接取被接收 | 管理员审核接取申请通过，允许用户开始做任务 |
 | `task_receivement_rejected` | 接取被拒绝 | 管理员拒绝用户接取任务的申请 |
+|`task_submission_pending`| 提交审核中 | 用户提交作业后，等待管理员处理 |
 | `task_completed` | 任务已完成 | 用户提交作业后，管理员审核通过，任务真正完成 |
 | `task_reject` | 提交被拒绝 | 用户提交作业后，管理员认为质量不合格而拒绝 |
 | `appealing` | 申诉中 | 用户对审核结果不满意，提出申诉 |
@@ -179,8 +182,9 @@ erDiagram
     ↓ (管理员审核接取申请)
     ├─ 接取通过 → [task_receive] ← 允许做任务
     │                   ↓ (用户提交作业)
-    │              [等待审核]
+    │              [等待审核] 
     │                   ↓ (管理员审核作业)
+    [task_submission_pending]
     │                   ├─ 审核通过 → [task_completed] ← 真正完成
     │                   │                    ↓
     │                   │              (用户申诉) → [appealing]
@@ -199,6 +203,7 @@ erDiagram
    - 通过 → `task_receive` (用户可以开始做任务)
    - 拒绝 → `task_receivement_rejected` (不允许做任务)
 3. **提交作业**: 用户在 `task_receive` 状态下提交作业，等待管理员审核
+   - 状态变为 `task_submission_pending` (等待管理员审核)
 4. **审核作业**:
    - 通过 → `task_completed` (任务完成,发放奖励)
    - 拒绝 → `task_reject` (作业不合格)
@@ -219,42 +224,47 @@ Task: [open] ← 等待用户接取
     ↓
 TaskAssignment(A): [task_pending] ← 初始状态
 Task: [open] ← 保持开放，等待管理员审核
+创建review: [pending] review_type="acceptance_review"
     ↓
 [管理员审核接取申请]
 review: [pending]
     ↓
     ├─ 接取通过 ────────────────────────────────┐
     │   TaskAssignment(A): [task_receive]        │
-    │   Task: [in_progress] ← 任务进行中！        │
+    │   Task: [in_progress] ← 任务进行中！
+    review: [approved] review_type="acceptance_review"        │
     │   Notification: 发送"接取通过"通知         │
     │                 ↓                          │
     │   [用户A提交作业]                          │
     │                 ↓                          │
     │   TaskAssignment(A): [task_receive]        │
-    │   Task: [in_progress] ← 保持进行中          │
+    │   Task: [in_progress] ← 保持进行中  
+        创建review: [pending] review_type="submission_review"     │
     │                 ↓                          │
-    │   [管理员审核作业]                         │
+    │   [管理员审核作业]   
+    │   Review: [pending]
+        assignment [task_submission_pending]                     │
     │                 ↓                          │
     │                 ├─ 审核通过 ───────────────┤
     │                 │   TaskAssignment(A): [task_completed]
     │                 │   Task: [completed] ← 任务完成
-    │                 │   Review: 创建记录（正常审核）
-    │                 │   Reward: [pending] → [issued]
+    │                 │   Review: approved review_type="submission_review"
+    │                 │   创建Reward: [pending] → [pending]
     │                 │                 ↓
     │                 │   [用户A可以申诉]
     │                 │                 ↓
     │                 │   TaskAssignment(A): [appealing]
-    │                 │   Review: 创建申诉记录 [appealing]
+    │                 │   更新Review:pending review_type="appealing"
     │                 │
     │                 └─ 审核拒绝 ───────────────┤
     │                     TaskAssignment(A): [task_reject]
     │                     Task: [is_progress] ← 如果提交未通过审核仍然保持为is_progress
-    │                     Review: 创建记录（正常审核）
+    │                     Review: rejected review_type="submission_review"
     │                                 ↓
     │                     [用户A可以申诉]
     │                                 ↓
     │                     TaskAssignment(A): [appealing]
-    │                     Review: 创建申诉记录 [appealing]
+    │                     更新Review: rejected review_type="appealing"
     │
     └─ 接取拒绝
         TaskAssignment(A): [task_receivement_rejected]
@@ -284,7 +294,7 @@ review: [pending]
     │                    ↓
     │                    ├─ 审核通过 → [completed] ← 任务完成
     │                    │
-    │                    └─ 审核拒绝 → [open] ← 重新开放，允许其他人接取
+    │                    └─ 审核拒绝 → [in_progress] ← 重新开放，允许其他人接取
     │
     └─ 接取拒绝 → [open] ← 保持开放，允许其他人接取
     
@@ -297,7 +307,7 @@ review: [pending]
 - **管理员审核接取通过** → Task 变为 `in_progress`（任务已分配，正在进行）
 - 用户提交作业后，Task 保持 `in_progress`
 - **作业审核通过** → Task 变为 `completed`（任务完成）
-- **作业审核拒绝** → Task 变回 `open`（重新开放给其他用户）
+- **作业审核拒绝** → Task 变回 `is_progress`（重新开放给其他用户）
 - 管理员可以随时手动关闭任务（风控等原因）
 
 ### 4.3 TaskAssignment 表状态流转图（已提供，不修改）
@@ -310,6 +320,7 @@ review: [pending]
     ├─ 接取通过 → [task_receive] ← 允许做任务
     │                   ↓ (用户提交作业)
     │              [等待审核]
+    │                   assignment:assignment_submission_pending
     │                   ↓ (管理员审核作业)
     │                   ├─ 审核通过 → [task_completed] ← 真正完成
     │                   │                    ↓
@@ -322,36 +333,93 @@ review: [pending]
     └─ 接取拒绝 → [task_receivement_rejected] ← 不允许做任务
 ```
 
-### 4.4 Review 表记录创建时机
+### 4.4 Review 表记录创建时机与流程
+
+Review 表记录所有的审核操作，包括接取申请审核、作业提交审核和申诉审核。
+
+#### 1. 接取申请审核 (Acceptance Review)
 
 ```
-Review 表只记录申诉，不记录正常审核！
+[用户接取任务]
+    ↓
+TaskAssignment: [task_pending]
+Review: 创建一条记录
+    - review_result: [pending]
+    - review_type: [acceptance_review]
+    - reviewer_id: [管理员ID] (或系统自动分配)
+    ↓
+[管理员审核接取]
+    ↓
+    ├─ 审核通过 → Review.review_result: [approved]
+    │             TaskAssignment: [task_receive]
+    │             Task: [in_progress]
+    │
+    └─ 审核拒绝 → Review.review_result: [rejected]
+                  TaskAssignment: [task_receivement_rejected]
+                  Task: [open] (重新开放)
+```
 
-[用户对审核结果不满]
+#### 2. 作业提交审核 (Submission Review)
+
+```
+[用户提交作业]
+    ↓
+TaskAssignment: [assignment_submission_pending]
+Review: 创建一条记录
+    - review_result: [pending]
+    - review_type: [submission_review]
+    ↓
+[管理员审核作业]
+    ↓
+    ├─ 审核通过 → Review.review_result: [approved]
+    │             TaskAssignment: [task_completed]
+    │             Task: [completed]
+    │             Reward: [pending] (创建奖励记录)
+    │
+    └─ 审核拒绝 → Review.review_result: [rejected]
+                  TaskAssignment: [task_reject]
+                  Task: [in_progress] (保持进行中，允许重交或他人接取)
+```
+
+#### 3. 申诉审核 (Appeal Review)
+
+```
+[用户对审核结果不满 (如作业被拒)]
     ↓
 [提交申诉]
     ↓
+TaskAssignment: [appealing]
 Review: 创建一条记录
-    - review_result: [appealing]
+    - review_result: [pending]
     - review_comment: 申诉理由
     - reviewer_id: 提交申诉的用户ID
-    ↓
-TaskAssignment: [appealing]
+    - review_type: [appeal_review]
     ↓
 [管理员处理申诉]
     ↓
-    ├─ 申诉通过 → Review.review_result: [approved]
-    │             TaskAssignment: [task_completed]
-    │             Reward: [pending] → [issued]
+    ├─ 申诉通过  ──┐
+    │  (提交被拒绝的作业) ——————│→ Review.review_result: [approved]
+    │                          │  TaskAssignment: [task_completed]
+    │                          │  Task: [completed]
+    │                          └─ Reward: [pending] → [issued]
     │
-    └─ 申诉拒绝 → Review.review_result: [rejected]
-                  TaskAssignment: [task_reject]
+    ├─ 申诉通过(给予修改机会) ──┐
+    │  (完成的作业，用户想完善作业) │→ Review.review_result: [approved]
+    │                          │  TaskAssignment: [task_receive] (回到进行中状态)
+    │                          └─ Task: [in_progress]
+    │
+    └─ 申诉拒绝 (维持原判)     ──┐
+       (针对已完成的作业)        │→ Review.review_result: [rejected]
+                               │  TaskAssignment: [task_completed] (保持完成状态)
+                               │
+       (针对被拒绝的作业)        │→ Review.review_result: [rejected]
+                                  TaskAssignment: [task_receive] (退回修改状态)
 ```
 
 **说明**：
-- 正常审核（管理员审核作业）不创建 Review 记录
-- 只有用户申诉时才创建 Review 记录
-- Review 表的 review_result 状态：pending → appealing → approved/rejected
+- 所有的审核操作（接取、提交、申诉）都会在 Review 表中创建记录。
+- Review 表的 review_result 状态：pending → approved/rejected。
+
 
 ### 4.5 Reward 表状态流转图
 
