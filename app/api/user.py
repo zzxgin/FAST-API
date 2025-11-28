@@ -6,8 +6,6 @@ and user information retrieval. All endpoints follow FastAPI standards.
 Note:
 All endpoints returning ORM objects must use `UserRead.from_orm(obj)` to ensure compatibility with Pydantic 1.x response_model validation.
 """
-
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.schemas.user import UserCreate, UserRead, UserLogin
