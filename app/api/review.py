@@ -21,9 +21,12 @@ from app.crud.review import (
     update_review,
 )
 from app.crud.task import update_task
+from app.crud.reward import create_reward, update_reward
 from app.models.assignment import AssignmentStatus, TaskAssignment
 from app.models.review import ReviewResult, ReviewType
+from app.models.reward import Reward ,  RewardStatus  
 from app.models.task import Task, TaskStatus
+from app.schemas.reward import RewardCreate, RewardStatus, RewardUpdate
 from app.schemas.assignment import AssignmentUpdate
 from app.schemas.notification import NotificationCreate
 from app.schemas.review import ReviewCreate, ReviewRead, ReviewUpdate
@@ -117,6 +120,15 @@ def apply_review_action(
                 ),
             )
             update_task(db, task.id, TaskUpdate(status=TaskStatus.completed))
+            create_reward(
+                db,
+                RewardCreate(
+                    assignment_id=assignment.id,
+                    amount=task.reward_amount,
+                    created_at=datetime.utcnow(),
+                    RewardStatus=RewardStatus.pending,
+                ),
+            )
             notification_content = (
                 f"恭喜！您提交的任务《{task.title}》作业已通过审核，奖励发放中..."
             )
@@ -232,6 +244,68 @@ def apply_review_action(
                         notification_content = (
                             f"您的申诉被拒绝，请继续完善任务《{task.title}》。"
                         )
+                # === 申诉审核 (appeal_review) ===
+    elif review_type == ReviewType.appeal_review:
+        # Only toggle state if the decision has changed (e.g. Approved -> Rejected or vice versa)
+        # or if it's the first decision (Pending -> Approved/Rejected)
+        if new_result != old_result:
+            if new_result == ReviewResult.approved:
+                if task.status == TaskStatus.completed:
+                    # Case: Completed task appeal -> Re-open (User wants to redo?)
+                    update_task(db, task.id, TaskUpdate(status=TaskStatus.in_progress))
+                    update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_receive))
+                    reward = db.query(Reward).filter(Reward.assignment_id == assignment.id).first()
+                    if reward:
+                        update_reward(db, reward.id, RewardUpdate(status=RewardStatus.pending))
+                    notification_content = f"您的申诉已通过，任务《{task.title}》已重置，请重新提交。"
+                
+                elif task.status == TaskStatus.in_progress:
+                    # Case: Rejected task appeal -> Overturn rejection (User did good)
+                    update_task(db, task.id, TaskUpdate(status=TaskStatus.completed))
+                    update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_completed))
+                    reward = db.query(Reward).filter(Reward.assignment_id == assignment.id).first()
+                    if reward:
+                        update_reward(db, reward.id, RewardUpdate(status=RewardStatus.issued))
+                    else:
+                        create_reward(db, RewardCreate(
+                            assignment_id=assignment.id,
+                            amount=task.reward_amount
+                        ))
+                        new_reward = db.query(Reward).filter(Reward.assignment_id == assignment.id).first()
+                        if new_reward:
+                             update_reward(db, new_reward.id, RewardUpdate(status=RewardStatus.issued))
+                    notification_content = f"您的申诉已通过，任务《{task.title}》判定为合格，奖励已发放。"
+
+            elif new_result == ReviewResult.rejected:
+                # Switching to Rejected (User loses)
+                # Only toggle if we are undoing a previous Approval (Approved -> Rejected)
+                if old_result == ReviewResult.approved:
+                    if task.status == TaskStatus.in_progress:
+                        # Was "Redo" (Approved) -> Undo -> Back to Completed
+                        update_task(db, task.id, TaskUpdate(status=TaskStatus.completed))
+                        update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_completed))
+                        reward = db.query(Reward).filter(Reward.assignment_id == assignment.id).first()
+                        if reward:
+                            update_reward(db, reward.id, RewardUpdate(status=RewardStatus.issued))
+                        notification_content = f"您的申诉被拒绝，任务《{task.title}》维持完成状态。"
+                    
+                    elif task.status == TaskStatus.completed:
+                        # Was "Overturn" (Approved) -> Undo -> Back to In_Progress
+                        update_task(db, task.id, TaskUpdate(status=TaskStatus.in_progress))
+                        update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_receive))
+                        reward = db.query(Reward).filter(Reward.assignment_id == assignment.id).first()
+                        if reward:
+                            update_reward(db, reward.id, RewardUpdate(status=RewardStatus.pending))
+                        notification_content = f"您的申诉被拒绝，请继续完善任务《{task.title}》。"
+                else:
+                    # Pending -> Rejected or Rejected -> Rejected
+                    # State stays as is (Original State)
+                    if task.status == TaskStatus.completed:
+                         update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_completed))
+                         notification_content = f"您的申诉被拒绝，任务《{task.title}》维持完成状态。"
+                    elif task.status == TaskStatus.in_progress:
+                         update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_receive))
+                         notification_content = f"您的申诉被拒绝，请继续完善任务《{task.title}》。"
 
     if notification_content:
         create_notification(

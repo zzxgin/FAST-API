@@ -2,16 +2,32 @@
 Reward API routes for issuing and managing rewards.
 All endpoints use OpenAPI English doc comments.
 """
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from app.schemas.reward import RewardCreate, RewardRead, RewardUpdate
-from app.crud.reward import create_reward, get_reward, get_rewards_by_user, update_reward
-from app.core.database import get_db
-from app.core.security import get_current_user
-from app.core.response import success_response, ApiResponse
+
 from typing import List
 
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.core.response import ApiResponse, success_response
+from app.core.security import get_current_user
+from app.crud.reward import (
+    create_reward,
+    get_reward,
+    get_reward_stats,
+    get_rewards_by_user,
+    list_rewards,
+    update_reward,
+)
+from app.schemas.reward import (
+    RewardCreate,
+    RewardRead,
+    RewardStats,
+    RewardUpdate,
+)
+
 router = APIRouter(prefix="/api/reward", tags=["reward"])
+
 
 @router.post("/issue", response_model=ApiResponse[RewardRead])
 def issue_reward(reward: RewardCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
@@ -23,7 +39,24 @@ def issue_reward(reward: RewardCreate, db: Session = Depends(get_db), current_us
         raise HTTPException(status_code=403, detail="Only admin can issue rewards")
     created = create_reward(db, reward)
     return success_response(data=RewardRead.from_orm(created), message="奖励发放成功")
+@router.get("/lists", response_model=ApiResponse[List[RewardRead]])
+def list_rewards_api(
+    skip: int = 0,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """List all rewards with pagination.
 
+    """
+    if current_user.role.value != "admin":
+        raise HTTPException(
+            status_code=403, detail="Only admin can list all rewards"
+        )
+    rewards = list_rewards(db, skip=skip, limit=limit)
+    return success_response(
+        data=[RewardRead.from_orm(r) for r in rewards], message="获取成功"
+    )
 @router.get("/{reward_id}", response_model=ApiResponse[RewardRead])
 def get_reward_detail(reward_id: int, db: Session = Depends(get_db)):
     """
@@ -58,3 +91,18 @@ def update_reward_detail(reward_id: int, reward_update: RewardUpdate, db: Sessio
         raise HTTPException(status_code=404, detail="Reward not found")
     updated = update_reward(db, reward_id, reward_update)
     return success_response(data=RewardRead.from_orm(updated), message="更新成功")
+
+@router.get("/stats", response_model=ApiResponse[RewardStats])
+def get_reward_statistics(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    
+    if current_user.role.value != "admin":
+        raise HTTPException(
+            status_code=403, detail="Only admin can view reward statistics"
+        )
+    
+    stats = get_reward_stats(db)
+    return success_response(data=stats, message="获取统计信息成功")
+

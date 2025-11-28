@@ -220,6 +220,7 @@ def update_assignment_progress(
     )
 
 
+
 @router.post(
     "/appeal/{assignment_id}", response_model=ApiResponse[AssignmentRead]
 )
@@ -271,9 +272,52 @@ def appeal_assignment(
             review_type=ReviewType.appeal_review,
             review_comment=f"用户申诉: {appeal_reason}",
         )
-        create_review(db, review_in, reviewer_id=admin_reviewer.id)
+        create_review(db, review_in, reviewer_id=current_user.id)
 
     return success_response(
         data=AssignmentRead.from_orm(updated),
         message="申诉提交成功，已生成待审核记录",
+    )
+@router.post(
+    "/redo/{assignment_id}", response_model=ApiResponse[AssignmentRead]
+)
+def redo_assignment(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Redo a rejected assignment.
+
+    Args:
+        assignment_id: The ID of the assignment to redo.
+        db: Database session.
+        current_user: The currently authenticated user.
+
+    Returns:
+        ApiResponse: The updated assignment data.
+
+    Raises:
+        HTTPException: If assignment not found, permission denied, or invalid
+            status.
+    """
+    assignment = get_assignment(db, assignment_id)
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    if assignment.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="No permission to redo this assignment"
+        )
+
+    if assignment.status != AssignmentStatus.task_reject:
+        raise HTTPException(
+            status_code=400,
+            detail="Only rejected assignments can be redone",
+        )
+
+    update = AssignmentUpdate(status=AssignmentStatus.task_receive)
+    updated = update_assignment(db, assignment_id, update)
+
+    return success_response(
+        data=AssignmentRead.from_orm(updated),
+        message="任务状态已重置，请重新提交",
     )

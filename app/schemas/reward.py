@@ -26,3 +26,9 @@ class RewardRead(RewardBase):
 
     class Config:
         orm_mode = True
+
+class RewardStats(BaseModel):
+    pending_amount: float
+    issued_amount: float
+    failed_amount: float
+    total_amount: float
