@@ -3,7 +3,7 @@
 This module intentionally keeps only simple data operations on the Review model.
 All business rules (assignment/task/reward/notifications) are handled at the API layer.
 """
-from typing import List, Optional
+from typing import  Optional
 from sqlalchemy.orm import Session
 from datetime import datetime
 from app.models.review import Review, ReviewType, ReviewResult
