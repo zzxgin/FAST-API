@@ -20,14 +20,17 @@ from app.crud.assignment import (
 )
 from app.crud.review import create_review
 from app.crud.user import get_first_admin
+from app.crud.task import get_task, update_task
 from app.models.assignment import AssignmentStatus
 from app.models.review import ReviewResult, ReviewType
+from app.models.task import TaskStatus
 from app.schemas.assignment import (
     AssignmentCreate,
     AssignmentRead,
     AssignmentUpdate,
 )
 from app.schemas.review import ReviewCreate
+from app.schemas.task import TaskUpdate
 
 UPLOAD_DIR = "uploads/assignments"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -314,8 +317,17 @@ def redo_assignment(
             detail="Only rejected assignments can be redone",
         )
 
-    update = AssignmentUpdate(status=AssignmentStatus.task_receive)
+    update = AssignmentUpdate(
+        status=AssignmentStatus.task_receive,
+        submit_content=None,
+        submit_time=None
+    )
     updated = update_assignment(db, assignment_id, update)
+
+    # Sync task status to in_progress
+    task = get_task(db, assignment.task_id)
+    if task and task.status != TaskStatus.in_progress:
+        update_task(db, task.id, TaskUpdate(status=TaskStatus.in_progress))
 
     return success_response(
         data=AssignmentRead.from_orm(updated),

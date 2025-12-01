@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
 from app.models.task import TaskStatus
+from app.schemas.user import UserRead
 
 class TaskBase(BaseModel):
     title: str
@@ -26,6 +27,8 @@ class TaskRead(TaskBase):
     status: TaskStatus
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
+    publisher: Optional[UserRead] = None
 
     class Config:
         orm_mode = True
+

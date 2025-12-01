@@ -27,9 +27,11 @@
     *   **目的**: 确保代码符合行业通用的权威规范
 -  **项目专属规范要求**:
     *   本地模块根路径为`app/`
-    *   主要修改范围：api和crud的assignment和review文件
-    *   禁止保留以`#`开头的中文注释（代码内中文无需处理）
+    *   主要修改范围：api/下的assignment的accept_task，和update_assignment_progress文件
+    -以及review的def apply_review_action，和submit_review以及update_review_detail文件，以及导包的顺序
+    *   禁止保留以`#`开头的中文注释，（代码内中文无需处理）
     *   禁止修改unit_test.py、models、schemas、core目录代码
+    *   return（）的括号无需上下换行
     *   **目的**: 确保代码符合项目特定约束
 
 ### 步骤 2: 代码处理执行
@@ -84,17 +86,16 @@
 ## 4. 执行示例
 
 **人类/任务分发者**:
-> "请优化 `app/api/review.py` 的代码风格"
+> "请优化 `app/api/review.py和assignment.py` 的代码风格"
 
 **AI Agent 的内部思考与行动**:
-1.  **接收任务**: 需处理的文件是 `app/api/review.py`。
+1.  **接收任务**: 需处理的文件是 `app/api/review.py，app/api/assignment.py`。
 2.  **步骤1 (规范回顾)**:
     *   回顾Google Python Style Guide核心规则
     *   确认项目专属要求（修改范围、导入路径、注释处理等）
 3.  **步骤2 (代码处理执行)**:
     *   调整导入顺序为"标准库→第三方库→本地模块"，移除未使用的导入
     *   修正缩进为4个空格，拆分超长行
-    *   为`get_review`函数添加Google风格docstring
     *   移除`# 获取评审信息`这类中文注释
 4.  **步骤3 (自我验证)**:
     *   检查发现导入组间缺少空行，返回步骤2补充
