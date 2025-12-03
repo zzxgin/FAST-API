@@ -4,9 +4,11 @@ This module intentionally keeps only simple data operations on the Review model.
 All business rules (assignment/task/reward/notifications) are handled at the API layer.
 """
 from typing import  Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from datetime import datetime
 from app.models.review import Review, ReviewType, ReviewResult
+from app.models.assignment import TaskAssignment
+from app.models.task import Task
 from app.schemas.review import ReviewCreate, ReviewUpdate
 
 def create_review(db: Session, review: ReviewCreate, reviewer_id: int):
@@ -47,6 +49,8 @@ def list_reviews(
     review_result: Optional[ReviewResult] = None,
     assignment_id: Optional[int] = None,
     task_id: Optional[int] = None,
+    task_title: Optional[str] = None,
+    publisher_id: Optional[int] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
 ):
@@ -57,9 +61,11 @@ def list_reviews(
     - review_result
     - assignment_id
     - task_id (via join on TaskAssignment)
+    - task_title (via join on TaskAssignment and Task)
+    - publisher_id (via join on TaskAssignment and Task)
     - review_time between start_time and end_time
     """
-    query = db.query(Review)
+    query = db.query(Review).options(joinedload(Review.assignment).joinedload("task"))
 
     if review_type is not None:
         query = query.filter(Review.review_type == review_type)
@@ -67,12 +73,21 @@ def list_reviews(
         query = query.filter(Review.review_result == review_result)
     if assignment_id is not None:
         query = query.filter(Review.assignment_id == assignment_id)
-    if task_id is not None:
-        from app.models.assignment import TaskAssignment
+    
+    if task_id is not None or task_title is not None or publisher_id is not None:
 
-        query = query.join(TaskAssignment, TaskAssignment.id == Review.assignment_id).filter(
-            TaskAssignment.task_id == task_id
-        )
+        query = query.join(TaskAssignment, TaskAssignment.id == Review.assignment_id)
+        
+        if task_id is not None:
+            query = query.filter(TaskAssignment.task_id == task_id)
+        
+        if task_title is not None or publisher_id is not None:
+            query = query.join(Task, TaskAssignment.task_id == Task.id)
+            if task_title is not None:
+                query = query.filter(Task.title.ilike(f"%{task_title}%"))
+            if publisher_id is not None:
+                query = query.filter(Task.publisher_id == publisher_id)
+
     if start_time is not None:
         query = query.filter(Review.review_time >= start_time)
     if end_time is not None:

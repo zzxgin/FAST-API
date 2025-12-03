@@ -68,3 +68,15 @@ def update_assignment(db: Session, assignment_id: int, assignment_update: Assign
     db.commit()
     db.refresh(db_assignment)
     return db_assignment
+
+def reject_other_pending_assignments(db: Session, task_id: int, accepted_assignment_id: int):
+    """Reject all other pending assignments for a task once one is accepted."""
+    db.query(TaskAssignment).filter(
+        TaskAssignment.task_id == task_id,
+        TaskAssignment.id != accepted_assignment_id,
+        TaskAssignment.status == AssignmentStatus.task_pending
+    ).update(
+        {TaskAssignment.status: AssignmentStatus.task_receivement_rejected},
+        synchronize_session=False
+    )
+    db.commit()

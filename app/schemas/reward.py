@@ -23,6 +23,8 @@ class RewardRead(RewardBase):
     issued_time: Optional[datetime]
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
+    user_name: Optional[str] = None
+    task_title: Optional[str] = None
 
     class Config:
         orm_mode = True
