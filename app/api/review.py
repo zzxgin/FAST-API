@@ -434,9 +434,8 @@ def list_reviews_api(
     limit: int = 20,
     review_type: Optional[ReviewType] = None,
     review_result: Optional[ReviewResult] = None,
-    assignment_id: Optional[int] = None,
-    task_id: Optional[int] = None,
     task_title: Optional[str] = None,
+    submitter_username: Optional[str] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
     db: Session = Depends(get_db),
@@ -449,9 +448,8 @@ def list_reviews_api(
         limit: Maximum number of records to return.
         review_type: Filter by review type.
         review_result: Filter by review result.
-        assignment_id: Filter by assignment ID.
-        task_id: Filter by task ID.
         task_title: Filter by task title (fuzzy search).
+        submitter_username: Filter by submitter username (fuzzy search).
         start_time: Filter by start time.
         end_time: Filter by end time.
         db: Database session.
@@ -479,9 +477,8 @@ def list_reviews_api(
         limit=limit,
         review_type=review_type,
         review_result=review_result,
-        assignment_id=assignment_id,
-        task_id=task_id,
         task_title=task_title,
+        submitter_username=submitter_username,
         publisher_id=publisher_filter,
         start_time=start_time,
         end_time=end_time,

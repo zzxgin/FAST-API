@@ -66,6 +66,8 @@ class UserRewardRecord(BaseModel):
     """Schema for user's reward record."""
     reward_id: int
     assignment_id: int
+    task_id: int
+    task_status: TaskStatus
     task_title: str
     amount: float
     status: RewardStatus  # pending, issued, failed

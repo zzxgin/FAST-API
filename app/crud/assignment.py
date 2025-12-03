@@ -35,12 +35,23 @@ def create_assignment(db: Session, assignment: AssignmentCreate, user_id: int):
     ).first()
     
     if existing_assignment:
-        raise ValueError(f"You have already accepted this task (Assignment ID: {existing_assignment.id})")
+        if existing_assignment.status == AssignmentStatus.task_pending:
+            raise ValueError(f"You have already accepted this task (Assignment ID: {existing_assignment.id})")
+        elif existing_assignment.status == AssignmentStatus.task_receivement_rejected:
+            # Reactivate assignment
+            existing_assignment.status = AssignmentStatus.task_pending
+            existing_assignment.submit_content = assignment.submit_content
+            existing_assignment.review_time = None
+            existing_assignment.submit_time = None
+            db.commit()
+            db.refresh(existing_assignment)
+            return existing_assignment
+        else:
+            raise ValueError(f"You have already accepted this task (Assignment ID: {existing_assignment.id})")
     
 
     if task.publisher_id == user_id:
         raise ValueError("You cannot accept your own published task")
-    
 
     db_assignment = TaskAssignment(
         task_id=assignment.task_id,

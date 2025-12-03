@@ -9,6 +9,7 @@ from datetime import datetime
 from app.models.review import Review, ReviewType, ReviewResult
 from app.models.assignment import TaskAssignment
 from app.models.task import Task
+from app.models.user import User
 from app.schemas.review import ReviewCreate, ReviewUpdate
 
 def create_review(db: Session, review: ReviewCreate, reviewer_id: int):
@@ -51,6 +52,7 @@ def list_reviews(
     task_id: Optional[int] = None,
     task_title: Optional[str] = None,
     publisher_id: Optional[int] = None,
+    submitter_username: Optional[str] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
 ):
@@ -63,6 +65,7 @@ def list_reviews(
     - task_id (via join on TaskAssignment)
     - task_title (via join on TaskAssignment and Task)
     - publisher_id (via join on TaskAssignment and Task)
+    - submitter_username (via join on TaskAssignment and User)
     - review_time between start_time and end_time
     """
     query = db.query(Review).options(joinedload(Review.assignment).joinedload("task"))
@@ -74,13 +77,17 @@ def list_reviews(
     if assignment_id is not None:
         query = query.filter(Review.assignment_id == assignment_id)
     
-    if task_id is not None or task_title is not None or publisher_id is not None:
+    if task_id is not None or task_title is not None or publisher_id is not None or submitter_username is not None:
 
         query = query.join(TaskAssignment, TaskAssignment.id == Review.assignment_id)
         
         if task_id is not None:
             query = query.filter(TaskAssignment.task_id == task_id)
         
+        if submitter_username is not None:
+            query = query.join(User, TaskAssignment.user_id == User.id)
+            query = query.filter(User.username.ilike(f"%{submitter_username}%"))
+
         if task_title is not None or publisher_id is not None:
             query = query.join(Task, TaskAssignment.task_id == Task.id)
             if task_title is not None:
