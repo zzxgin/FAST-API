@@ -65,7 +65,7 @@ CREATE TABLE reviews (
     id INT AUTO_INCREMENT PRIMARY KEY,
     assignment_id INT NOT NULL,
     reviewer_id INT NOT NULL,
-    review_result ENUM('pending', 'approved', 'rejected', 'appealing') NOT NULL DEFAULT 'pending',
+    review_result ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
     review_type ENUM('acceptance_review', 'submission_review', 'appeal_review') NOT NULL DEFAULT 'submission_review',
     review_comment TEXT,
     review_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

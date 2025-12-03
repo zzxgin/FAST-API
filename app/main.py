@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.api import user, auth, tasks, assignment, review, reward, notifications, user_center, admin
+from fastapi.middleware.cors import CORSMiddleware
 
 # from app.core.exception_handler import global_exception_handler, custom_http_exception_handler
 from fastapi.exceptions import RequestValidationError
@@ -12,7 +13,24 @@ from app.core.exception_handler import (
     db_integrity_exception_handler,  # 导入数据库完整性异常处理器
     db_exception_handler,
 )
+
 app = FastAPI()
+
+# 配置 CORS
+origins = [
+    "http://localhost:5173",  # 前端开发服务器地址
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(user.router)
 app.include_router(auth.router)
 app.include_router(tasks.router)

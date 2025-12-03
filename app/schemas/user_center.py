@@ -94,7 +94,8 @@ class UserTaskStats(BaseModel):
     completed_tasks: int
     pending_tasks: int
     rejected_tasks: int
-
+    inprogress_tasks: int
+    appeal_tasks: int
     # Published task statistics
     published_tasks: int
     published_completed: int

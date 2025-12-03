@@ -312,14 +312,32 @@ def get_user_task_stats(db: Session, user_id: int) -> UserTaskStats:
     pending_tasks = db.query(TaskAssignment).filter(
         and_(
             TaskAssignment.user_id == user_id,
-            TaskAssignment.status == AssignmentStatus.task_pending
+            TaskAssignment.status.in_([
+                AssignmentStatus.task_pending,
+                AssignmentStatus.assignment_submission_pending
+            ])
         )
     ).count()
 
     rejected_tasks = db.query(TaskAssignment).filter(
         and_(
             TaskAssignment.user_id == user_id,
-            TaskAssignment.status == AssignmentStatus.task_reject
+            TaskAssignment.status.in_([
+                AssignmentStatus.task_reject,
+                AssignmentStatus.task_receivement_rejected
+            ])
+        )
+    ).count()
+    in_progress_tasks = db.query(TaskAssignment).filter(
+        and_(
+            TaskAssignment.user_id == user_id,
+            TaskAssignment.status == AssignmentStatus.task_receive
+        )
+    ).count()
+    appeal_tasks = db.query(TaskAssignment).filter(
+        and_(
+            TaskAssignment.user_id == user_id,
+            TaskAssignment.status == AssignmentStatus.appealing
         )
     ).count()
 
@@ -387,6 +405,8 @@ def get_user_task_stats(db: Session, user_id: int) -> UserTaskStats:
         completed_tasks=completed_tasks,
         pending_tasks=pending_tasks,
         rejected_tasks=rejected_tasks,
+        inprogress_tasks=in_progress_tasks,
+        appeal_tasks=appeal_tasks,
         published_tasks=published_tasks,
         published_completed=published_completed,
         published_in_progress=published_in_progress,

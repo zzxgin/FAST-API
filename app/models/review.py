@@ -8,6 +8,7 @@ import enum
 from datetime import datetime
 from app.models.user import User
 from app.models.task import Task
+# from app.models.assignment import TaskAssignment # Avoid circular import if any, but here it seems safe or use string
 
 class ReviewResult(enum.Enum):
     pending = "pending"
@@ -16,9 +17,9 @@ class ReviewResult(enum.Enum):
     appealing = "appealing"
 class ReviewType(enum.Enum):
     """审核类型枚举"""
-    acceptance_review = "acceptance_review"  # 接取申请审核
-    submission_review = "submission_review"  # 作业提交审核
-    appeal_review = "appeal_review"  # 申诉审核
+    acceptance_review = "acceptance_review"  
+    submission_review = "submission_review"  
+    appeal_review = "appeal_review"  
 class Review(Base):
     __tablename__ = "reviews"
     id = Column(Integer, primary_key=True, index=True)
@@ -29,3 +30,8 @@ class Review(Base):
     review_comment = Column(Text)
     review_time = Column(DateTime, default=datetime.utcnow)
     reviewer = relationship("User")
+    assignment = relationship("TaskAssignment")
+
+    @property
+    def task_title(self):
+        return self.assignment.task.title if self.assignment and self.assignment.task else None

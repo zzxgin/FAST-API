@@ -20,3 +20,12 @@ class Reward(Base):
     status = Column(Enum(RewardStatus), default=RewardStatus.pending)
     issued_time = Column(DateTime)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    assignment = relationship("TaskAssignment")
+
+    @property
+    def user_name(self):
+        return self.assignment.user.username if self.assignment and self.assignment.user else None
+
+    @property
+    def task_title(self):
+        return self.assignment.task.title if self.assignment and self.assignment.task else None

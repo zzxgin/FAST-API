@@ -10,7 +10,11 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.response import ApiResponse, success_response
 from app.core.security import get_current_user
-from app.crud.assignment import get_assignment, update_assignment
+from app.crud.assignment import (
+    get_assignment,
+    update_assignment,
+    reject_other_pending_assignments,
+)
 from app.crud.notification import create_notification
 from app.crud.review import (
     create_review,
@@ -21,9 +25,16 @@ from app.crud.review import (
     update_review,
 )
 from app.crud.task import update_task
+from app.crud.reward import (
+    create_reward,
+    update_reward,
+    get_reward_by_assignment_id,
+)
 from app.models.assignment import AssignmentStatus, TaskAssignment
 from app.models.review import ReviewResult, ReviewType
+from app.models.reward import Reward ,  RewardStatus  
 from app.models.task import Task, TaskStatus
+from app.schemas.reward import RewardCreate, RewardStatus, RewardUpdate
 from app.schemas.assignment import AssignmentUpdate
 from app.schemas.notification import NotificationCreate
 from app.schemas.review import ReviewCreate, ReviewRead, ReviewUpdate
@@ -89,6 +100,9 @@ def apply_review_action(
                     db, task.id, TaskUpdate(status=TaskStatus.in_progress)
                 )
 
+            # Reject other pending assignments for this task
+            reject_other_pending_assignments(db, task.id, assignment.id)
+            
             notification_content = (
                 f"您接取任务《{task.title}》的申请已通过，可以开始做任务了！"
             )
@@ -102,7 +116,7 @@ def apply_review_action(
                     review_time=datetime.utcnow(),
                 ),
             )
-
+            update_task(db, task.id, TaskUpdate(status=TaskStatus.open))
             reason = f"，原因：{comment}" if comment else ""
             notification_content = f"您接取任务《{task.title}》的申请被拒绝{reason}"
 
@@ -117,6 +131,18 @@ def apply_review_action(
                 ),
             )
             update_task(db, task.id, TaskUpdate(status=TaskStatus.completed))
+            
+            existing_reward = get_reward_by_assignment_id(db, assignment.id)
+            if not existing_reward:
+                create_reward(
+                    db,
+                    RewardCreate(
+                        assignment_id=assignment.id,
+                        amount=task.reward_amount,
+                        created_at=datetime.utcnow(),
+                        RewardStatus=RewardStatus.pending,
+                    ),
+                )
             notification_content = (
                 f"恭喜！您提交的任务《{task.title}》作业已通过审核，奖励发放中..."
             )
@@ -232,6 +258,68 @@ def apply_review_action(
                         notification_content = (
                             f"您的申诉被拒绝，请继续完善任务《{task.title}》。"
                         )
+                # === 申诉审核 (appeal_review) ===
+    elif review_type == ReviewType.appeal_review:
+        # Only toggle state if the decision has changed (e.g. Approved -> Rejected or vice versa)
+        # or if it's the first decision (Pending -> Approved/Rejected)
+        if new_result != old_result:
+            if new_result == ReviewResult.approved:
+                if task.status == TaskStatus.completed:
+                    # Case: Completed task appeal -> Re-open (User wants to redo?)
+                    update_task(db, task.id, TaskUpdate(status=TaskStatus.in_progress))
+                    update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_receive))
+                    reward = get_reward_by_assignment_id(db, assignment.id)
+                    if reward:
+                        update_reward(db, reward.id, RewardUpdate(status=RewardStatus.pending))
+                    notification_content = f"您的申诉已通过，任务《{task.title}》已重置，请重新提交。"
+                
+                elif task.status == TaskStatus.in_progress:
+                    # Case: Rejected task appeal -> Overturn rejection (User did good)
+                    update_task(db, task.id, TaskUpdate(status=TaskStatus.completed))
+                    update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_completed))
+                    reward = get_reward_by_assignment_id(db, assignment.id)
+                    if reward:
+                        update_reward(db, reward.id, RewardUpdate(status=RewardStatus.issued))
+                    else:
+                        create_reward(db, RewardCreate(
+                            assignment_id=assignment.id,
+                            amount=task.reward_amount
+                        ))
+                        new_reward = get_reward_by_assignment_id(db, assignment.id)
+                        if new_reward:
+                             update_reward(db, new_reward.id, RewardUpdate(status=RewardStatus.issued))
+                    notification_content = f"您的申诉已通过，任务《{task.title}》判定为合格，奖励已发放。"
+
+            elif new_result == ReviewResult.rejected:
+                # Switching to Rejected (User loses)
+                # Only toggle if we are undoing a previous Approval (Approved -> Rejected)
+                if old_result == ReviewResult.approved:
+                    if task.status == TaskStatus.in_progress:
+                        # Was "Redo" (Approved) -> Undo -> Back to Completed
+                        update_task(db, task.id, TaskUpdate(status=TaskStatus.completed))
+                        update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_completed))
+                        reward = get_reward_by_assignment_id(db, assignment.id)
+                        if reward:
+                            update_reward(db, reward.id, RewardUpdate(status=RewardStatus.issued))
+                        notification_content = f"您的申诉被拒绝，任务《{task.title}》维持完成状态。"
+                    
+                    elif task.status == TaskStatus.completed:
+                        # Was "Overturn" (Approved) -> Undo -> Back to In_Progress
+                        update_task(db, task.id, TaskUpdate(status=TaskStatus.in_progress))
+                        update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_receive))
+                        reward = get_reward_by_assignment_id(db, assignment.id)
+                        if reward:
+                            update_reward(db, reward.id, RewardUpdate(status=RewardStatus.pending))
+                        notification_content = f"您的申诉被拒绝，请继续完善任务《{task.title}》。"
+                else:
+                    # Pending -> Rejected or Rejected -> Rejected
+                    # State stays as is (Original State)
+                    if task.status == TaskStatus.completed:
+                         update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_completed))
+                         notification_content = f"您的申诉被拒绝，任务《{task.title}》维持完成状态。"
+                    elif task.status == TaskStatus.in_progress:
+                         update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_receive))
+                         notification_content = f"您的申诉被拒绝，请继续完善任务《{task.title}》。"
 
     if notification_content:
         create_notification(
@@ -280,10 +368,16 @@ def submit_review(
         ReviewType.submission_review,
         ReviewType.appeal_review,
     ]:
-        if current_user.role.value != "admin":
+        is_admin = current_user.role.value == "admin"
+        is_publisher = (
+            current_user.role.value == "publisher"
+            and task.publisher_id == current_user.id
+        )
+
+        if not (is_admin or is_publisher):
             raise HTTPException(
                 status_code=403,
-                detail="Only admin can review acceptance and submission",
+                detail="Permission denied. Only admin or task publisher can review.",
             )
     else:
         raise HTTPException(status_code=400, detail="Invalid review type")
@@ -342,6 +436,7 @@ def list_reviews_api(
     review_result: Optional[ReviewResult] = None,
     assignment_id: Optional[int] = None,
     task_id: Optional[int] = None,
+    task_title: Optional[str] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
     db: Session = Depends(get_db),
@@ -356,6 +451,7 @@ def list_reviews_api(
         review_result: Filter by review result.
         assignment_id: Filter by assignment ID.
         task_id: Filter by task ID.
+        task_title: Filter by task title (fuzzy search).
         start_time: Filter by start time.
         end_time: Filter by end time.
         db: Database session.
@@ -365,12 +461,17 @@ def list_reviews_api(
         ApiResponse: A list of reviews.
 
     Raises:
-        HTTPException: If user is not an admin.
+        HTTPException: If user is not an admin or publisher.
     """
-    if current_user.role.value != "admin":
+    is_admin = current_user.role.value == "admin"
+    is_publisher = current_user.role.value == "publisher"
+
+    if not (is_admin or is_publisher):
         raise HTTPException(
-            status_code=403, detail="Only admin can list reviews"
+            status_code=403, detail="Only admin or publisher can list reviews"
         )
+
+    publisher_filter = current_user.id if is_publisher else None
 
     reviews = list_reviews(
         db=db,
@@ -380,6 +481,8 @@ def list_reviews_api(
         review_result=review_result,
         assignment_id=assignment_id,
         task_id=task_id,
+        task_title=task_title,
+        publisher_id=publisher_filter,
         start_time=start_time,
         end_time=end_time,
     )
@@ -441,20 +544,10 @@ def update_review_detail(
     Args:
         review_id: The ID of the review to update.
         review_update: The update data.
-        db: Database session.
-        current_user: The currently authenticated user.
-
-    Returns:
-        ApiResponse: The updated review data.
-
     Raises:
         HTTPException: If review/assignment/task not found, permission denied,
             or invalid review type.
     """
-    if current_user.role.value != "admin":
-        raise HTTPException(
-            status_code=403, detail="Only admin can update reviews"
-        )
     db_review = get_review(db, review_id)
     if not db_review:
         raise HTTPException(status_code=404, detail="Review not found")
@@ -465,6 +558,24 @@ def update_review_detail(
             status_code=404, detail="Associated assignment not found"
         )
     task = db.query(Task).filter(Task.id == assignment.task_id).first()
+    if not task:
+        raise HTTPException(
+            status_code=404, detail="Associated task not found"
+        )
+
+    is_admin = current_user.role.value == "admin"
+    is_publisher = (
+        current_user.role.value == "publisher"
+        and task.publisher_id == current_user.id
+    )
+
+    if not (is_admin or is_publisher):
+        raise HTTPException(
+            status_code=403,
+            detail="Permission denied. Only admin or task publisher can update reviews",
+        )
+
+    new_result = review_update.review_result or db_review.review_result
     if not task:
         raise HTTPException(
             status_code=404, detail="Associated task not found"

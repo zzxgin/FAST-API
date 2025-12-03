@@ -144,8 +144,49 @@ responses:
 ### GET /api/tasks/
 ```
 @openapi
-summary: List all tasks (paginated)
+summary: List all tasks (paginated, filterable, sortable)
 parameters:
+  - in: query
+    name: skip
+    required: false
+    schema:
+      type: integer
+  - in: query
+    name: limit
+    required: false
+    schema:
+      type: integer
+  - in: query
+    name: status
+    required: false
+    schema:
+      type: string
+  - in: query
+    name: order_by
+    required: false
+    schema:
+      type: string
+responses:
+  200:
+    description: List of tasks
+    content:
+      application/json:
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskRead'
+```
+
+### GET /api/tasks/search/
+```
+@openapi
+summary: Search tasks by keyword
+parameters:
+  - in: query
+    name: keyword
+    required: true
+    schema:
+      type: string
   - in: query
     name: skip
     required: false
@@ -336,6 +377,53 @@ responses:
             $ref: '#/components/schemas/RewardRead'
 ```
 
+### GET /api/reward/lists
+```
+@openapi
+summary: List all rewards (Admin only)
+security:
+  - bearerAuth: []
+parameters:
+  - in: query
+    name: skip
+    required: false
+    schema:
+      type: integer
+  - in: query
+    name: limit
+    required: false
+    schema:
+      type: integer
+responses:
+  200:
+    description: List of rewards
+    content:
+      application/json:
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/RewardRead'
+  403:
+    description: Only admin can list all rewards
+```
+
+### GET /api/reward/stats
+```
+@openapi
+summary: Get reward statistics (Admin only)
+security:
+  - bearerAuth: []
+responses:
+  200:
+    description: Reward statistics
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/RewardStats'
+  403:
+    description: Only admin can view reward statistics
+```
+
 ### PUT /api/reward/{reward_id}
 ```
 @openapi
@@ -402,6 +490,46 @@ responses:
     description: Permission denied (role or owner check failed)
   400:
     description: Invalid review type or business state
+```
+
+### GET /api/review/list
+```
+@openapi
+summary: List reviews with filters (Admin only)
+security:
+  - bearerAuth: []
+parameters:
+  - in: query
+    name: skip
+    required: false
+    schema:
+      type: integer
+  - in: query
+    name: limit
+    required: false
+    schema:
+      type: integer
+  - in: query
+    name: review_type
+    required: false
+    schema:
+      type: string
+  - in: query
+    name: review_result
+    required: false
+    schema:
+      type: string
+responses:
+  200:
+    description: List of reviews
+    content:
+      application/json:
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewRead'
+  403:
+    description: Only admin can list reviews
 ```
 
 ### GET /api/review/assignment/{assignment_id}
@@ -618,6 +746,33 @@ responses:
     description: Assignment not found
 ```
 
+### POST /api/assignment/redo/{assignment_id}
+```
+@openapi
+summary: Redo a rejected assignment
+security:
+  - bearerAuth: []
+parameters:
+  - in: path
+    name: assignment_id
+    required: true
+    schema:
+      type: integer
+responses:
+  200:
+    description: Assignment status reset to task_receive
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/AssignmentRead'
+  400:
+    description: Only rejected assignments can be redone
+  403:
+    description: Permission denied
+  404:
+    description: Assignment not found
+```
+
 
 ---
 
@@ -667,10 +822,12 @@ responses:
             $ref: '#/components/schemas/NotificationRead'
 ```
 
-### GET /api/notifications/{notification_id}
+### PATCH /api/notifications/{notification_id}/read
 ```
 @openapi
-summary: Get notification detail by ID
+summary: Mark notification as read
+security:
+  - bearerAuth: []
 parameters:
   - in: path
     name: notification_id
@@ -679,11 +836,13 @@ parameters:
       type: integer
 responses:
   200:
-    description: Notification detail
+    description: Notification marked as read
     content:
       application/json:
         schema:
           $ref: '#/components/schemas/NotificationRead'
+  403:
+    description: Permission denied
   404:
     description: Notification not found
 ```
@@ -899,6 +1058,7 @@ UserCreate:
       type: string
     email:
       type: string
+      nullable: true
     password:
       type: string
     role:
@@ -1292,6 +1452,26 @@ RewardRead:
     created_at:
       type: string
       format: date-time
+```
+
+### RewardStats
+```
+@openapi
+RewardStats:
+  type: object
+  properties:
+    pending_amount:
+      type: number
+      format: float
+    issued_amount:
+      type: number
+      format: float
+    failed_amount:
+      type: number
+      format: float
+    total_amount:
+      type: number
+      format: float
 ```
 
 # Admin APIs (管理后台)
