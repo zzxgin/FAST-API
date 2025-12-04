@@ -113,15 +113,20 @@ def get_user_task_records(db: Session, user_id: int, status: Optional[str] = Non
 
 
 def get_user_published_tasks(db: Session, user_id: int, status: Optional[str] = None,
-                           skip: int = 0, limit: int = 20) -> List[UserPublishedTask]:
+                           task_title: Optional[str] = None,
+                           skip: int = 0, limit: int = 20,
+                           sort_by: str = "created_at", sort_order: str = "desc") -> List[UserPublishedTask]:
     """Get user's published tasks.
 
     Args:
         db: SQLAlchemy session
         user_id: User ID (publisher)
         status: Optional task status filter
+        task_title: Optional task title filter (fuzzy search)
         skip: Pagination offset
         limit: Pagination limit
+        sort_by: Field to sort by (created_at, reward_amount)
+        sort_order: Sort order (asc, desc)
 
     Returns:
         List of published tasks
@@ -155,8 +160,20 @@ def get_user_published_tasks(db: Session, user_id: int, status: Optional[str] = 
 
     if status:
         query = query.filter(Task.status == status)
+    
+    if task_title:
+        query = query.filter(Task.title.ilike(f"%{task_title}%"))
 
-    query = query.order_by(Task.created_at.desc())
+    # Sorting logic
+    sort_column = Task.created_at
+    if sort_by == "reward_amount":
+        sort_column = Task.reward_amount
+    
+    if sort_order.lower() == "asc":
+        query = query.order_by(sort_column.asc())
+    else:
+        query = query.order_by(sort_column.desc())
+
     query = query.offset(skip).limit(limit)
 
     results = query.all()

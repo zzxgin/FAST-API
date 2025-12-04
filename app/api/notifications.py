@@ -18,11 +18,11 @@ def send_notification(notification: NotificationCreate, db: Session = Depends(ge
     Send a notification to a user.
     - Only admin can send notifications.
     """
-    if current_user.role.value != "admin":
+    if current_user.role.value != "admin" and current_user.role.value != "publisher":
         raise HTTPException(status_code=403, detail="Only admin can send notifications")
     created = create_notification(db, notification)
     return success_response(data=NotificationRead.from_orm(created), message="通知发送成功")
-
+    
 @router.get("/user/{user_id}", response_model=ApiResponse[List[NotificationRead]])
 def list_notifications_by_user(user_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """

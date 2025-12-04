@@ -113,3 +113,21 @@ def update_review(db: Session, review_id: int, review_update: ReviewUpdate):
     db.commit()
     db.refresh(db_review)
     return db_review
+
+def reject_other_pending_reviews(db: Session, task_id: int, accepted_assignment_id: int):
+    """Reject all other pending acceptance reviews for a task once one is accepted."""
+    db.query(Review).filter(
+        Review.review_type == ReviewType.acceptance_review,
+        Review.review_result == ReviewResult.pending,
+        Review.assignment_id.in_(
+            db.query(TaskAssignment.id).filter(
+                TaskAssignment.task_id == task_id,
+                TaskAssignment.id != accepted_assignment_id
+            )
+        )
+    ).update({
+        Review.review_result: ReviewResult.rejected,
+        Review.review_comment: "自动拒绝：该任务已被其他申请通过",
+        Review.review_time: datetime.utcnow()
+    }, synchronize_session=False)
+    db.commit()

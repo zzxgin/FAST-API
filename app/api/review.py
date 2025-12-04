@@ -15,7 +15,7 @@ from app.crud.assignment import (
     update_assignment,
     reject_other_pending_assignments,
 )
-from app.crud.notification import create_notification
+from app.crud.notification import create_notification, notify_rejected_applicants
 from app.crud.review import (
     create_review,
     get_pending_review,
@@ -23,6 +23,7 @@ from app.crud.review import (
     get_reviews_by_assignment,
     list_reviews,
     update_review,
+    reject_other_pending_reviews,
 )
 from app.crud.task import update_task
 from app.crud.reward import (
@@ -100,8 +101,14 @@ def apply_review_action(
                     db, task.id, TaskUpdate(status=TaskStatus.in_progress)
                 )
 
+            # Notify other applicants before rejecting them
+            notify_rejected_applicants(db, task.id, assignment.id, task.title)
+
             # Reject other pending assignments for this task
             reject_other_pending_assignments(db, task.id, assignment.id)
+            
+            # Reject other pending reviews for this task
+            reject_other_pending_reviews(db, task.id, assignment.id)
             
             notification_content = (
                 f"您接取任务《{task.title}》的申请已通过，可以开始做任务了！"

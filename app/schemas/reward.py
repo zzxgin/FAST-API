@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
 from app.models.reward import RewardStatus
+from app.models.task import TaskStatus
 
 class RewardBase(BaseModel):
     assignment_id: int
@@ -25,6 +26,7 @@ class RewardRead(RewardBase):
     updated_at: Optional[datetime]
     user_name: Optional[str] = None
     task_title: Optional[str] = None
+    task_status: Optional[TaskStatus] = None
 
     class Config:
         orm_mode = True

@@ -16,6 +16,7 @@ from app.crud.assignment import (
     create_assignment,
     get_assignment,
     get_assignments_by_user,
+    get_assignments_by_task,
     update_assignment,
 )
 from app.crud.review import create_review
@@ -131,6 +132,24 @@ def list_assignments_by_user(user_id: int, db: Session = Depends(get_db)):
         ApiResponse: A list of assignments for the user.
     """
     assignments = get_assignments_by_user(db, user_id)
+    return success_response(
+        data=[AssignmentRead.from_orm(a) for a in assignments],
+        message="获取成功",
+    )
+
+
+@router.get("/task/{task_id}", response_model=ApiResponse[List[AssignmentRead]])
+def list_assignments_by_task(task_id: int, db: Session = Depends(get_db)):
+    """List all assignments for a specific task.
+
+    Args:
+        task_id: The ID of the task.
+        db: Database session.
+
+    Returns:
+        ApiResponse: A list of assignments for the task.
+    """
+    assignments = get_assignments_by_task(db, task_id)
     return success_response(
         data=[AssignmentRead.from_orm(a) for a in assignments],
         message="获取成功",

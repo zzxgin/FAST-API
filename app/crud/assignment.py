@@ -70,6 +70,9 @@ def get_assignment(db: Session, assignment_id: int):
 def get_assignments_by_user(db: Session, user_id: int):
     return db.query(TaskAssignment).filter(TaskAssignment.user_id == user_id).all()
 
+def get_assignments_by_task(db: Session, task_id: int):
+    return db.query(TaskAssignment).filter(TaskAssignment.task_id == task_id).all()
+
 def update_assignment(db: Session, assignment_id: int, assignment_update: AssignmentUpdate):
     db_assignment = get_assignment(db, assignment_id)
     if not db_assignment:

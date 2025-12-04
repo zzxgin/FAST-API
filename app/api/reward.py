@@ -5,7 +5,7 @@ All endpoints use OpenAPI English doc comments.
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -25,6 +25,8 @@ from app.schemas.reward import (
     RewardStats,
     RewardUpdate,
 )
+from app.models.task import TaskStatus
+from app.models.reward import RewardStatus
 
 router = APIRouter(prefix="/api/reward", tags=["reward"])
 
@@ -35,8 +37,8 @@ def issue_reward(reward: RewardCreate, db: Session = Depends(get_db), current_us
     Issue a reward to a user for an assignment.
     - Only admin can issue rewards.
     """
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can issue rewards")
+    if current_user.role.value != "admin" and current_user.role.value != "publisher":
+        raise HTTPException(status_code=403, detail="Only admin or publisher can issue rewards")
     created = create_reward(db, reward)
     return success_response(data=RewardRead.from_orm(created), message="奖励发放成功")
 @router.get("/lists", response_model=ApiResponse[List[RewardRead]])
@@ -45,34 +47,52 @@ def list_rewards_api(
     limit: int = 20,
     user_name: Optional[str] = None,
     task_title: Optional[str] = None,
+    task_status: Optional[TaskStatus] = None,
+    reward_status: Optional[RewardStatus] = None,
     sort_by_time: Optional[str] = None,
     sort_by_amount: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """List all rewards with pagination and filters.
-
-    Args:
-        skip: Number of records to skip.
-        limit: Maximum number of records to return.
-        user_name: Filter by user name (fuzzy).
-        task_title: Filter by task title (fuzzy).
-        sort_by_time: Sort by created time ('asc' or 'desc').
-        sort_by_amount: Sort by amount ('asc' or 'desc').
+    """List rewards with pagination and filters.
+    
+    - Admin: Can view all rewards.
+    - Publisher: Can only view rewards for tasks they published.
     """
-    if current_user.role.value != "admin":
+    is_admin = current_user.role.value == "admin"
+    is_publisher = current_user.role.value == "publisher"
+
+    if not (is_admin or is_publisher):
         raise HTTPException(
-            status_code=403, detail="Only admin can list all rewards"
+            status_code=403, detail="Only admin or publisher can list rewards"
         )
-    rewards = list_rewards(
-        db,
-        skip=skip,
-        limit=limit,
-        user_name=user_name,
-        task_title=task_title,
-        sort_by_time=sort_by_time,
-        sort_by_amount=sort_by_amount,
-    )
+
+    if is_publisher:
+        rewards = list_rewards(
+            db,
+            skip=skip,
+            limit=limit,
+            task_title=task_title,
+            task_status=task_status,
+            reward_status=reward_status,
+            publisher_id=current_user.id,
+            sort_by_time=sort_by_time,
+            sort_by_amount=sort_by_amount,
+        )
+    else:
+        # Admin logic
+        rewards = list_rewards(
+            db,
+            skip=skip,
+            limit=limit,
+            user_name=user_name,
+            task_title=task_title,
+            task_status=task_status,
+            reward_status=reward_status,
+            sort_by_time=sort_by_time,
+            sort_by_amount=sort_by_amount,
+        )
+        
     return success_response(
         data=[RewardRead.from_orm(r) for r in rewards], message="获取成功"
     )
@@ -116,10 +136,10 @@ def list_rewards_by_user(user_id: int, db: Session = Depends(get_db)):
 def update_reward_detail(reward_id: int, reward_update: RewardUpdate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Update reward info (status, issued_time).
-    - Only admin can update.
+    - Only admin and publisher can update.
     """
-    if current_user.role.value != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can update rewards")
+    if current_user.role.value != "admin" and current_user.role.value != "publisher":
+        raise HTTPException(status_code=403, detail="Only admin or publisher can update rewards")
     reward = get_reward(db, reward_id)
     if not reward:
         raise HTTPException(status_code=404, detail="Reward not found")

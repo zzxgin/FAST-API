@@ -29,3 +29,7 @@ class Reward(Base):
     @property
     def task_title(self):
         return self.assignment.task.title if self.assignment and self.assignment.task else None
+
+    @property
+    def task_status(self):
+        return self.assignment.task.status if self.assignment and self.assignment.task else None
