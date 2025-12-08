@@ -14,6 +14,7 @@ from app.models.reward import RewardStatus
 class UserProfileUpdate(BaseModel):
     """Schema for updating user profile."""
     email: Optional[EmailStr] = None
+    password: Optional[str] = None
     # TODO: Add more profile fields as needed (avatar, bio, etc.)
 
 

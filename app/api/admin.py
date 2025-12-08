@@ -43,10 +43,10 @@ def list_users(
 @router.put("/users/{user_id}", response_model=ApiResponse[AdminUserItem])
 def update_user(user_id: int, update: AdminUserUpdate, db: Session = Depends(get_db), _=Depends(admin_only)):
     """
-    Update user role.
+    Update user role or password.
     - Admin only.
     """
-    user = crud_admin.update_user(db, user_id, role=update.role)
+    user = crud_admin.update_user(db, user_id, role=update.role, password=update.password)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return success_response(data=user, message="更新成功")

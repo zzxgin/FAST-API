@@ -12,6 +12,7 @@ from app.models.user import User
 from app.models.task import Task, TaskStatus
 from app.models.assignment import TaskAssignment, AssignmentStatus
 from app.models.reward import Reward, RewardStatus
+from app.crud.user import pwd_context
 from app.schemas.user_center import (
     UserProfileUpdate,
     UserTaskRecord,
@@ -51,6 +52,11 @@ def update_user_profile(db: Session, user_id: int, profile_update: UserProfileUp
         return None
 
     update_data = profile_update.dict(exclude_unset=True)
+    
+    if "password" in update_data:
+        password = update_data.pop("password")
+        user.password_hash = pwd_context.hash(password)
+
     for field, value in update_data.items():
         setattr(user, field, value)
 
