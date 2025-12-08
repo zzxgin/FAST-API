@@ -2,6 +2,7 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
+from app.crud.user import pwd_context
 from app.models.user import User, UserRole
 from app.models.task import Task, TaskStatus
 from app.models.assignment import TaskAssignment, AssignmentStatus
@@ -40,13 +41,14 @@ def get_user(db: Session, user_id: int) -> Optional[User]:
     return db.query(User).filter(User.id == user_id).first()
 
 
-def update_user(db: Session, user_id: int, role: Optional[UserRole] = None) -> Optional[User]:
+def update_user(db: Session, user_id: int, role: Optional[UserRole] = None, password: Optional[str] = None) -> Optional[User]:
     """Update a user's information.
     
     Args:
         db: Database session.
         user_id: User ID to update.
         role: New role to assign (optional).
+        password: New password to set (optional).
     
     Returns:
         Updated User object if found, None otherwise.
@@ -56,6 +58,9 @@ def update_user(db: Session, user_id: int, role: Optional[UserRole] = None) -> O
         return None
     if role is not None:
         user.role = role
+    if password is not None:
+        print(password)
+        user.password_hash = pwd_context.hash(password)
     db.commit()
     db.refresh(user)
     return user

@@ -19,6 +19,7 @@ class AdminUserItem(BaseModel):
 
 class AdminUserUpdate(BaseModel):
     role: Optional[UserRole] = None
+    password: Optional[str] = None
 
 
 class AdminTaskItem(BaseModel):

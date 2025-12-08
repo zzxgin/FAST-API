@@ -17,11 +17,7 @@ from app.core.exception_handler import (
 app = FastAPI()
 
 # 配置 CORS
-origins = [
-    "http://localhost:5173",  # 前端开发服务器地址
-    "http://127.0.0.1:5173",
-    "http://localhost:8000",
-]
+origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
