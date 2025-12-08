@@ -158,9 +158,7 @@ def list_assignments_by_task(task_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.post(
-    "/submit/{assignment_id}", response_model=ApiResponse[AssignmentRead]
-)
+@router.post("/submit/{assignment_id}", response_model=ApiResponse[AssignmentRead])
 def submit_assignment(
     assignment_id: int,
     submit_content: str = Form(None),
@@ -222,9 +220,7 @@ def submit_assignment(
     )
 
 
-@router.patch(
-    "/{assignment_id}/progress", response_model=ApiResponse[AssignmentRead]
-)
+@router.patch("/{assignment_id}/progress", response_model=ApiResponse[AssignmentRead])
 def update_assignment_progress(
     assignment_id: int,
     update: AssignmentUpdate,
@@ -259,9 +255,7 @@ def update_assignment_progress(
 
 
 
-@router.post(
-    "/appeal/{assignment_id}", response_model=ApiResponse[AssignmentRead]
-)
+@router.post("/appeal/{assignment_id}", response_model=ApiResponse[AssignmentRead])
 def appeal_assignment(
     assignment_id: int,
     appeal_reason: str = Form(...),
@@ -318,9 +312,7 @@ def appeal_assignment(
     )
 
 
-@router.post(
-    "/redo/{assignment_id}", response_model=ApiResponse[AssignmentRead]
-)
+@router.post("/redo/{assignment_id}", response_model=ApiResponse[AssignmentRead])
 def redo_assignment(
     assignment_id: int,
     db: Session = Depends(get_db),
