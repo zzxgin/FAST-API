@@ -5,15 +5,17 @@ All endpoints use OpenAPI English doc comments.
 
 from datetime import datetime
 from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from app.core.database import get_db
 from app.core.response import ApiResponse, success_response
 from app.core.security import get_current_user
 from app.crud.assignment import (
     get_assignment,
-    update_assignment,
     reject_other_pending_assignments,
+    update_assignment,
 )
 from app.crud.notification import create_notification, notify_rejected_applicants
 from app.crud.review import (
@@ -22,23 +24,23 @@ from app.crud.review import (
     get_review,
     get_reviews_by_assignment,
     list_reviews,
-    update_review,
     reject_other_pending_reviews,
+    update_review,
 )
-from app.crud.task import update_task
 from app.crud.reward import (
     create_reward,
-    update_reward,
     get_reward_by_assignment_id,
+    update_reward,
 )
+from app.crud.task import update_task
 from app.models.assignment import AssignmentStatus, TaskAssignment
 from app.models.review import ReviewResult, ReviewType
-from app.models.reward import Reward ,  RewardStatus  
+from app.models.reward import Reward, RewardStatus
 from app.models.task import Task, TaskStatus
-from app.schemas.reward import RewardCreate, RewardStatus, RewardUpdate
 from app.schemas.assignment import AssignmentUpdate
 from app.schemas.notification import NotificationCreate
 from app.schemas.review import ReviewCreate, ReviewRead, ReviewUpdate
+from app.schemas.reward import RewardCreate, RewardUpdate
 from app.schemas.task import TaskUpdate
 
 router = APIRouter(prefix="/api/review", tags=["review"])
@@ -61,281 +63,229 @@ def admin_only(user=Depends(get_current_user)):
     return user
 
 
-def apply_review_action(
-    db: Session,
-    assignment: TaskAssignment,
-    task: Task,
-    review_type: ReviewType,
-    new_result: ReviewResult,
-    comment: Optional[str],
-    old_result: ReviewResult = ReviewResult.pending,
-):
-    """Apply business logic for review decisions.
+class ReviewActionHandler:
+    """Handles business logic for review decisions."""
 
-    Handles state transitions, rewards, and notifications.
+    def __init__(self, db: Session, assignment: TaskAssignment, task: Task):
+        """Initializes the handler.
 
-    Args:
-        db: Database session.
-        assignment: The assignment being reviewed.
-        task: The task associated with the assignment.
-        review_type: The type of review.
-        new_result: The new review result.
-        comment: Review comment.
-        old_result: The previous review result.
-    """
-    notification_content = ""
+        Args:
+            db: Database session.
+            assignment: The assignment being reviewed.
+            task: The task associated with the assignment.
+        """
+        self.db = db
+        self.assignment = assignment
+        self.task = task
 
-    if review_type == ReviewType.acceptance_review:
-        if new_result == ReviewResult.approved:
-            update_assignment(
-                db,
-                assignment.id,
-                AssignmentUpdate(
-                    status=AssignmentStatus.task_receive,
-                    review_time=datetime.utcnow(),
-                ),
+    def apply(
+        self,
+        review_type: ReviewType,
+        new_result: ReviewResult,
+        comment: Optional[str],
+        old_result: ReviewResult = ReviewResult.pending,
+    ):
+        """Apply review logic based on type.
+
+        Args:
+            review_type: The type of review.
+            new_result: The new result of the review.
+            comment: Optional comment for the review.
+            old_result: The previous result of the review. Defaults to pending.
+        """
+        notification_content = ""
+
+        if review_type == ReviewType.acceptance_review:
+            notification_content = self._handle_acceptance_review(
+                new_result, comment
+            )
+        elif review_type == ReviewType.submission_review:
+            notification_content = self._handle_submission_review(
+                new_result, comment
+            )
+        elif review_type == ReviewType.appeal_review:
+            notification_content = self._handle_appeal_review(
+                new_result, old_result
             )
 
-            if task.status == TaskStatus.open:
-                update_task(
-                    db, task.id, TaskUpdate(status=TaskStatus.in_progress)
-                )
+        if notification_content:
+            self._send_notification(notification_content)
 
-            # Notify other applicants before rejecting them
-            notify_rejected_applicants(db, task.id, assignment.id, task.title)
+    def _update_assignment(
+        self, status: AssignmentStatus, update_review_time: bool = False
+    ):
+        """Updates the assignment status.
 
-            # Reject other pending assignments for this task
-            reject_other_pending_assignments(db, task.id, assignment.id)
-            
-            # Reject other pending reviews for this task
-            reject_other_pending_reviews(db, task.id, assignment.id)
-            
-            notification_content = (
-                f"您接取任务《{task.title}》的申请已通过，可以开始做任务了！"
-            )
+        Args:
+            status: The new status.
+            update_review_time: Whether to update the review time.
+        """
+        update_data = AssignmentUpdate(status=status)
+        if update_review_time:
+            update_data.review_time = datetime.utcnow()
+        update_assignment(self.db, self.assignment.id, update_data)
 
-        elif new_result == ReviewResult.rejected:
-            update_assignment(
-                db,
-                assignment.id,
-                AssignmentUpdate(
-                    status=AssignmentStatus.task_receivement_rejected,
-                    review_time=datetime.utcnow(),
-                ),
-            )
-            update_task(db, task.id, TaskUpdate(status=TaskStatus.open))
-            reason = f"，原因：{comment}" if comment else ""
-            notification_content = f"您接取任务《{task.title}》的申请被拒绝{reason}"
+    def _update_task(self, status: TaskStatus):
+        """Updates the task status.
 
-    elif review_type == ReviewType.submission_review:
-        if new_result == ReviewResult.approved:
-            update_assignment(
-                db,
-                assignment.id,
-                AssignmentUpdate(
-                    status=AssignmentStatus.task_completed,
-                    review_time=datetime.utcnow(),
-                ),
-            )
-            update_task(db, task.id, TaskUpdate(status=TaskStatus.completed))
-            
-            existing_reward = get_reward_by_assignment_id(db, assignment.id)
-            if not existing_reward:
-                create_reward(
-                    db,
-                    RewardCreate(
-                        assignment_id=assignment.id,
-                        amount=task.reward_amount,
-                        created_at=datetime.utcnow(),
-                        RewardStatus=RewardStatus.pending,
-                    ),
-                )
-            notification_content = (
-                f"恭喜！您提交的任务《{task.title}》作业已通过审核，奖励发放中..."
-            )
+        Args:
+            status: The new status.
+        """
+        update_task(self.db, self.task.id, TaskUpdate(status=status))
 
-        elif new_result == ReviewResult.rejected:
-            update_assignment(
-                db,
-                assignment.id,
-                AssignmentUpdate(
-                    status=AssignmentStatus.task_reject,
-                    review_time=datetime.utcnow(),
-                ),
-            )
+    def _send_notification(self, content: str):
+        """Sends a notification to the user.
 
-            if task.status == TaskStatus.completed:
-                update_task(
-                    db, task.id, TaskUpdate(status=TaskStatus.in_progress)
-                )
-
-            reason = f"，原因：{comment}" if comment else ""
-            notification_content = (
-                f"您提交的任务《{task.title}》作业未通过审核{reason}，可以申诉"
-            )
-
-    elif review_type == ReviewType.appeal_review:
-        if new_result != old_result:
-            if new_result == ReviewResult.approved:
-                if task.status == TaskStatus.completed:
-                    update_task(
-                        db, task.id, TaskUpdate(status=TaskStatus.in_progress)
-                    )
-                    update_assignment(
-                        db,
-                        assignment.id,
-                        AssignmentUpdate(status=AssignmentStatus.task_receive),
-                    )
-                    # Reward logic omitted as per original code structure
-                    notification_content = (
-                        f"您的申诉已通过，任务《{task.title}》已重置，请重新提交。"
-                    )
-
-                elif task.status == TaskStatus.in_progress:
-                    update_task(
-                        db, task.id, TaskUpdate(status=TaskStatus.completed)
-                    )
-                    update_assignment(
-                        db,
-                        assignment.id,
-                        AssignmentUpdate(
-                            status=AssignmentStatus.task_completed
-                        ),
-                    )
-                    # Reward logic omitted as per original code structure
-                    notification_content = (
-                        f"您的申诉已通过，任务《{task.title}》判定为合格，奖励已发放。"
-                    )
-
-            elif new_result == ReviewResult.rejected:
-                if old_result == ReviewResult.approved:
-                    if task.status == TaskStatus.in_progress:
-                        update_task(
-                            db,
-                            task.id,
-                            TaskUpdate(status=TaskStatus.completed),
-                        )
-                        update_assignment(
-                            db,
-                            assignment.id,
-                            AssignmentUpdate(
-                                status=AssignmentStatus.task_completed
-                            ),
-                        )
-                        notification_content = (
-                            f"您的申诉被拒绝，任务《{task.title}》维持完成状态。"
-                        )
-
-                    elif task.status == TaskStatus.completed:
-                        update_task(
-                            db,
-                            task.id,
-                            TaskUpdate(status=TaskStatus.in_progress),
-                        )
-                        update_assignment(
-                            db,
-                            assignment.id,
-                            AssignmentUpdate(
-                                status=AssignmentStatus.task_receive
-                            ),
-                        )
-                        notification_content = (
-                            f"您的申诉被拒绝，请继续完善任务《{task.title}》。"
-                        )
-                else:
-                    if task.status == TaskStatus.completed:
-                        update_assignment(
-                            db,
-                            assignment.id,
-                            AssignmentUpdate(
-                                status=AssignmentStatus.task_completed
-                            ),
-                        )
-                        notification_content = (
-                            f"您的申诉被拒绝，任务《{task.title}》维持完成状态。"
-                        )
-                    elif task.status == TaskStatus.in_progress:
-                        update_assignment(
-                            db,
-                            assignment.id,
-                            AssignmentUpdate(
-                                status=AssignmentStatus.task_receive
-                            ),
-                        )
-                        notification_content = (
-                            f"您的申诉被拒绝，请继续完善任务《{task.title}》。"
-                        )
-                # === 申诉审核 (appeal_review) ===
-    elif review_type == ReviewType.appeal_review:
-        # Only toggle state if the decision has changed (e.g. Approved -> Rejected or vice versa)
-        # or if it's the first decision (Pending -> Approved/Rejected)
-        if new_result != old_result:
-            if new_result == ReviewResult.approved:
-                if task.status == TaskStatus.completed:
-                    # Case: Completed task appeal -> Re-open (User wants to redo?)
-                    update_task(db, task.id, TaskUpdate(status=TaskStatus.in_progress))
-                    update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_receive))
-                    reward = get_reward_by_assignment_id(db, assignment.id)
-                    if reward:
-                        update_reward(db, reward.id, RewardUpdate(status=RewardStatus.pending))
-                    notification_content = f"您的申诉已通过，任务《{task.title}》已重置，请重新提交。"
-                
-                elif task.status == TaskStatus.in_progress:
-                    # Case: Rejected task appeal -> Overturn rejection (User did good)
-                    update_task(db, task.id, TaskUpdate(status=TaskStatus.completed))
-                    update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_completed))
-                    reward = get_reward_by_assignment_id(db, assignment.id)
-                    if reward:
-                        update_reward(db, reward.id, RewardUpdate(status=RewardStatus.issued))
-                    else:
-                        create_reward(db, RewardCreate(
-                            assignment_id=assignment.id,
-                            amount=task.reward_amount
-                        ))
-                        new_reward = get_reward_by_assignment_id(db, assignment.id)
-                        if new_reward:
-                             update_reward(db, new_reward.id, RewardUpdate(status=RewardStatus.issued))
-                    notification_content = f"您的申诉已通过，任务《{task.title}》判定为合格，奖励已发放。"
-
-            elif new_result == ReviewResult.rejected:
-                # Switching to Rejected (User loses)
-                # Only toggle if we are undoing a previous Approval (Approved -> Rejected)
-                if old_result == ReviewResult.approved:
-                    if task.status == TaskStatus.in_progress:
-                        # Was "Redo" (Approved) -> Undo -> Back to Completed
-                        update_task(db, task.id, TaskUpdate(status=TaskStatus.completed))
-                        update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_completed))
-                        reward = get_reward_by_assignment_id(db, assignment.id)
-                        if reward:
-                            update_reward(db, reward.id, RewardUpdate(status=RewardStatus.issued))
-                        notification_content = f"您的申诉被拒绝，任务《{task.title}》维持完成状态。"
-                    
-                    elif task.status == TaskStatus.completed:
-                        # Was "Overturn" (Approved) -> Undo -> Back to In_Progress
-                        update_task(db, task.id, TaskUpdate(status=TaskStatus.in_progress))
-                        update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_receive))
-                        reward = get_reward_by_assignment_id(db, assignment.id)
-                        if reward:
-                            update_reward(db, reward.id, RewardUpdate(status=RewardStatus.pending))
-                        notification_content = f"您的申诉被拒绝，请继续完善任务《{task.title}》。"
-                else:
-                    # Pending -> Rejected or Rejected -> Rejected
-                    # State stays as is (Original State)
-                    if task.status == TaskStatus.completed:
-                         update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_completed))
-                         notification_content = f"您的申诉被拒绝，任务《{task.title}》维持完成状态。"
-                    elif task.status == TaskStatus.in_progress:
-                         update_assignment(db, assignment.id, AssignmentUpdate(status=AssignmentStatus.task_receive))
-                         notification_content = f"您的申诉被拒绝，请继续完善任务《{task.title}》。"
-
-    if notification_content:
+        Args:
+            content: The notification content.
+        """
         create_notification(
-            db,
+            self.db,
             NotificationCreate(
-                user_id=assignment.user_id,
-                content=notification_content,
+                user_id=self.assignment.user_id,
+                content=content,
             ),
         )
+
+    def _ensure_reward_status(self, status: RewardStatus):
+        """Ensures the reward status is correct.
+
+        Args:
+            status: The target status.
+        """
+        reward = get_reward_by_assignment_id(self.db, self.assignment.id)
+        if reward:
+            update_reward(self.db, reward.id, RewardUpdate(status=status))
+        else:
+            create_reward(
+                self.db,
+                RewardCreate(
+                    assignment_id=self.assignment.id,
+                    amount=self.task.reward_amount,
+                    created_at=datetime.utcnow(),
+                    status=status,
+                ),
+            )
+
+    def _handle_acceptance_review(
+        self, new_result: ReviewResult, comment: Optional[str]
+    ) -> str:
+        """Handles acceptance review logic.
+
+        Args:
+            new_result: The new review result.
+            comment: Optional comment.
+
+        Returns:
+            The notification content.
+        """
+        if new_result == ReviewResult.approved:
+            self._update_assignment(
+                AssignmentStatus.task_receive, update_review_time=True
+            )
+
+            if self.task.status == TaskStatus.open:
+                self._update_task(TaskStatus.in_progress)
+
+            notify_rejected_applicants(
+                self.db, self.task.id, self.assignment.id, self.task.title
+            )
+            reject_other_pending_assignments(
+                self.db, self.task.id, self.assignment.id
+            )
+            reject_other_pending_reviews(
+                self.db, self.task.id, self.assignment.id
+            )
+
+            return f"您接取任务《{self.task.title}》的申请已通过，可以开始做任务了！"
+
+        elif new_result == ReviewResult.rejected:
+            self._update_assignment(
+                AssignmentStatus.task_receivement_rejected,
+                update_review_time=True,
+            )
+            self._update_task(TaskStatus.open)
+            reason = f"，原因：{comment}" if comment else ""
+            return f"您接取任务《{self.task.title}》的申请被拒绝{reason}"
+    def _handle_submission_review(
+        self, new_result: ReviewResult, comment: Optional[str]
+    ) -> str:
+        """Handles submission review logic.
+
+        Args:
+            new_result: The new review result.
+            comment: Optional comment.
+
+        Returns:
+            The notification content.
+        """
+        if new_result == ReviewResult.approved:
+            self._update_assignment(
+                AssignmentStatus.task_completed, update_review_time=True
+            )
+            self._update_task(TaskStatus.completed)
+            self._ensure_reward_status(RewardStatus.pending)
+            return f"恭喜！您提交的任务《{self.task.title}》作业已通过审核，奖励发放中..."
+
+        elif new_result == ReviewResult.rejected:
+            self._update_assignment(
+                AssignmentStatus.task_reject, update_review_time=True
+            )
+
+            if self.task.status == TaskStatus.completed:
+                self._update_task(TaskStatus.in_progress)
+
+            reason = f"，原因：{comment}" if comment else ""
+            return f"您提交的任务《{self.task.title}》作业未通过审核{reason}，可以申诉"
+
+    def _handle_appeal_review(
+        self, new_result: ReviewResult, old_result: ReviewResult
+    ) -> str:
+        """Handles appeal review logic.
+
+        Args:
+            new_result: The new review result.
+            old_result: The previous review result.
+
+        Returns:
+            The notification content.
+        """
+        if new_result == old_result:
+            return "申诉结果未改变"
+
+        if new_result == ReviewResult.approved:
+            if self.task.status == TaskStatus.completed:
+                self._update_task(TaskStatus.in_progress)
+                self._update_assignment(AssignmentStatus.task_receive)
+                self._ensure_reward_status(RewardStatus.pending)
+                return f"您的申诉已通过，任务《{self.task.title}》已重置，请重新提交。"
+
+            elif self.task.status == TaskStatus.in_progress:
+                self._update_task(TaskStatus.completed)
+                self._update_assignment(AssignmentStatus.task_completed)
+                self._ensure_reward_status(RewardStatus.pending)
+                return f"您的申诉已通过，任务《{self.task.title}》判定为合格，奖励发放中..."
+
+        elif new_result == ReviewResult.rejected:
+            if old_result == ReviewResult.approved:
+                if self.task.status == TaskStatus.in_progress:
+                    self._update_task(TaskStatus.completed)
+                    self._update_assignment(AssignmentStatus.task_completed)
+                    self._ensure_reward_status(RewardStatus.pending)
+                    return f"您的申诉被拒绝，任务《{self.task.title}》维持完成状态，奖励发放中..."
+
+                elif self.task.status == TaskStatus.completed:
+                    self._update_task(TaskStatus.in_progress)
+                    self._update_assignment(AssignmentStatus.task_receive)
+                    self._ensure_reward_status(RewardStatus.pending)
+                    return f"您的申诉被拒绝，请继续完善任务《{self.task.title}》。"
+            else:
+                if self.task.status == TaskStatus.completed:
+                    self._update_assignment(AssignmentStatus.task_completed)
+                    return f"您的申诉被拒绝，任务《{self.task.title}》维持完成状态。"
+                elif self.task.status == TaskStatus.in_progress:
+                    self._update_assignment(AssignmentStatus.task_receive)
+                    return f"您的申诉被拒绝，请继续完善任务《{self.task.title}》。"
 
 
 @router.post("/submit", response_model=ApiResponse[ReviewRead])
@@ -395,10 +345,8 @@ def submit_review(
         assignment=assignment,
     )
 
-    apply_review_action(
-        db=db,
-        assignment=assignment,
-        task=task,
+    review_action_handler = ReviewActionHandler(db, assignment, task)
+    review_action_handler.apply(
         review_type=review.review_type,
         new_result=review.review_result,
         comment=review.review_comment,
@@ -408,20 +356,18 @@ def submit_review(
     pending_review = get_pending_review(db, assignment.id, review.review_type)
 
     if pending_review:
-        update_kwargs = {
-            "review_result": review.review_result,
-            "reviewer_id": current_user.id,
-            "review_time": datetime.utcnow(),
-        }
-
-        if review.review_type != ReviewType.appeal_review:
-            update_kwargs["review_comment"] = review.review_comment
-
-        final_review = update_review(
-            db, pending_review.id, ReviewUpdate(**update_kwargs)
+        # Only update status of the auto-created pending review
+        update_review(
+            db,
+            pending_review.id,
+            ReviewUpdate(
+                review_result=review.review_result,
+                review_time=datetime.utcnow(),
+            ),
         )
-    else:
-        final_review = create_review(db, review, reviewer_id=current_user.id)
+
+    # Always create a new review for the actual judgment
+    final_review = create_review(db, review, reviewer_id=current_user.id)
 
     message_map = {
         ReviewType.acceptance_review: "接取审核成功",
@@ -535,7 +481,6 @@ def list_reviews_by_assignment(
         data=[ReviewRead.from_orm(r) for r in reviews], message="获取成功"
     )
 
-
 @router.post("/{review_id}", response_model=ApiResponse[ReviewRead])
 def update_review_detail(
     review_id: int,
@@ -548,6 +493,12 @@ def update_review_detail(
     Args:
         review_id: The ID of the review to update.
         review_update: The update data.
+        db: Database session.
+        current_user: The currently authenticated user.
+
+    Returns:
+        ApiResponse: The updated review data.
+
     Raises:
         HTTPException: If review/assignment/task not found, permission denied,
             or invalid review type.
@@ -586,11 +537,6 @@ def update_review_detail(
         )
 
     new_result = review_update.review_result or db_review.review_result
-    new_comment = (
-        review_update.review_comment
-        if review_update.review_comment is not None
-        else db_review.review_comment
-    )
 
     if db_review.review_type not in [
         ReviewType.acceptance_review,
@@ -606,28 +552,38 @@ def update_review_detail(
         old_review_result=db_review.review_result,
     )
 
-    apply_review_action(
-        db=db,
-        assignment=assignment,
-        task=task,
+    review_action_handler = ReviewActionHandler(db, assignment, task)
+    review_action_handler.apply(
         review_type=db_review.review_type,
         new_result=new_result,
-        comment=new_comment,
+        comment=review_update.review_comment,
         old_result=db_review.review_result,
     )
 
-    updated_review = update_review(
+    # Update the existing review (User's request) - Only status
+    update_review(
         db,
         db_review.id,
         ReviewUpdate(
             review_result=new_result,
-            review_comment=new_comment,
             review_time=datetime.utcnow(),
         ),
     )
 
+    # Create a new review (Admin's judgment)
+    final_review = create_review(
+        db,
+        ReviewCreate(
+            assignment_id=assignment.id,
+            review_type=db_review.review_type,
+            review_result=new_result,
+            review_comment=review_update.review_comment,
+        ),
+        reviewer_id=current_user.id,
+    )
+
     return success_response(
-        data=ReviewRead.from_orm(updated_review), message="审核更新成功"
+        data=ReviewRead.from_orm(final_review), message="审核更新成功"
     )
 
 
@@ -643,7 +599,7 @@ def validate_review_preconditions(
         review_type: The type of review.
         review_result: The result of the review.
         assignment: The assignment being reviewed.
-        old_review_result: The previous review result.
+        old_review_result: The previous review result. Defaults to pending.
 
     Raises:
         HTTPException: If preconditions are not met.

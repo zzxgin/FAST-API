@@ -77,16 +77,16 @@ def list_reviews(
     if assignment_id is not None:
         query = query.filter(Review.assignment_id == assignment_id)
     
-    if task_id is not None or task_title is not None or publisher_id is not None or submitter_username is not None:
+    if submitter_username is not None:
+        query = query.join(User, Review.reviewer_id == User.id)
+        query = query.filter(User.username.ilike(f"%{submitter_username}%"))
+
+    if task_id is not None or task_title is not None or publisher_id is not None:
 
         query = query.join(TaskAssignment, TaskAssignment.id == Review.assignment_id)
         
         if task_id is not None:
             query = query.filter(TaskAssignment.task_id == task_id)
-        
-        if submitter_username is not None:
-            query = query.join(User, TaskAssignment.user_id == User.id)
-            query = query.filter(User.username.ilike(f"%{submitter_username}%"))
 
         if task_title is not None or publisher_id is not None:
             query = query.join(Task, TaskAssignment.task_id == Task.id)

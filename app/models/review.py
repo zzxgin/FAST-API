@@ -38,4 +38,4 @@ class Review(Base):
 
     @property
     def submitter_username(self):
-        return self.assignment.user.username if self.assignment and self.assignment.user else None
+        return self.reviewer.username if self.reviewer else None

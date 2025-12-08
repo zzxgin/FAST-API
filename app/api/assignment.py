@@ -300,6 +300,8 @@ def appeal_assignment(
         data=AssignmentRead.from_orm(updated),
         message="申诉提交成功，已生成待审核记录",
     )
+
+
 @router.post(
     "/redo/{assignment_id}", response_model=ApiResponse[AssignmentRead]
 )
