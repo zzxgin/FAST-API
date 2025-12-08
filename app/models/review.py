@@ -35,3 +35,7 @@ class Review(Base):
     @property
     def task_title(self):
         return self.assignment.task.title if self.assignment and self.assignment.task else None
+
+    @property
+    def submitter_username(self):
+        return self.reviewer.username if self.reviewer else None

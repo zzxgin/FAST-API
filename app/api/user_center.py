@@ -88,8 +88,11 @@ async def get_user_tasks(
 @router.get("/published-tasks", response_model=ApiResponse[List[UserPublishedTask]])
 async def get_user_published_tasks(
     status: Optional[str] = Query(None, description="Filter by task status"),
+    task_title: Optional[str] = Query(None, description="Filter by task title (fuzzy search)"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Number of records to return"),
+    sort_by: str = Query("created_at", description="Sort by field: created_at, reward_amount"),
+    sort_order: str = Query("desc", description="Sort order: asc, desc"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -97,14 +100,18 @@ async def get_user_published_tasks(
 
     Args:
         status: Optional task status filter
+        task_title: Optional task title filter
         skip: Pagination offset
         limit: Pagination limit
+        sort_by: Field to sort by
+        sort_order: Sort order
 
     Returns:
         List of user's published tasks
     """
     tasks = crud_user_center.get_user_published_tasks(
-        db, current_user.id, status=status, skip=skip, limit=limit
+        db, current_user.id, status=status, task_title=task_title,
+        skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order
     )
     return success_response(data=tasks, message="获取成功")
 

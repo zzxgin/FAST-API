@@ -4,23 +4,26 @@ All endpoints use OpenAPI English doc comments.
 """
 
 import os
-from typing import List
 from datetime import datetime
+from typing import List
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
 from app.core.database import get_db
 from app.core.response import ApiResponse, success_response
 from app.core.security import get_current_user
 from app.crud.assignment import (
     create_assignment,
     get_assignment,
+    get_assignments_by_task,
     get_assignments_by_user,
     update_assignment,
 )
 from app.crud.review import create_review
-from app.crud.user import get_first_admin
 from app.crud.task import get_task, update_task
+from app.crud.user import get_first_admin
 from app.models.assignment import AssignmentStatus
 from app.models.review import ReviewResult, ReviewType
 from app.models.task import TaskStatus
@@ -137,9 +140,25 @@ def list_assignments_by_user(user_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.post(
-    "/submit/{assignment_id}", response_model=ApiResponse[AssignmentRead]
-)
+@router.get("/task/{task_id}", response_model=ApiResponse[List[AssignmentRead]])
+def list_assignments_by_task(task_id: int, db: Session = Depends(get_db)):
+    """List all assignments for a specific task.
+
+    Args:
+        task_id: The ID of the task.
+        db: Database session.
+
+    Returns:
+        ApiResponse: A list of assignments for the task.
+    """
+    assignments = get_assignments_by_task(db, task_id)
+    return success_response(
+        data=[AssignmentRead.from_orm(a) for a in assignments],
+        message="获取成功",
+    )
+
+
+@router.post("/submit/{assignment_id}", response_model=ApiResponse[AssignmentRead])
 def submit_assignment(
     assignment_id: int,
     submit_content: str = Form(None),
@@ -147,14 +166,28 @@ def submit_assignment(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    
+    """Submit an assignment.
 
+    Args:
+        assignment_id: The ID of the assignment to submit.
+        submit_content: The content of the submission.
+        file: The file to upload.
+        db: Database session.
+        current_user: The currently authenticated user.
+
+    Returns:
+        ApiResponse: The updated assignment data.
+
+    Raises:
+        HTTPException: If assignment not found or permission denied.
+    """
     assignment = get_assignment(db, assignment_id)
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
     if assignment.user_id != current_user.id:
         raise HTTPException(
-            status_code=403, detail="No permission to submit for this assignment"
+            status_code=403,
+            detail="No permission to submit for this assignment",
         )
 
     file_path = None
@@ -187,9 +220,7 @@ def submit_assignment(
     )
 
 
-@router.patch(
-    "/{assignment_id}/progress", response_model=ApiResponse[AssignmentRead]
-)
+@router.patch("/{assignment_id}/progress", response_model=ApiResponse[AssignmentRead])
 def update_assignment_progress(
     assignment_id: int,
     update: AssignmentUpdate,
@@ -224,9 +255,7 @@ def update_assignment_progress(
 
 
 
-@router.post(
-    "/appeal/{assignment_id}", response_model=ApiResponse[AssignmentRead]
-)
+@router.post("/appeal/{assignment_id}", response_model=ApiResponse[AssignmentRead])
 def appeal_assignment(
     assignment_id: int,
     appeal_reason: str = Form(...),
@@ -281,9 +310,9 @@ def appeal_assignment(
         data=AssignmentRead.from_orm(updated),
         message="申诉提交成功，已生成待审核记录",
     )
-@router.post(
-    "/redo/{assignment_id}", response_model=ApiResponse[AssignmentRead]
-)
+
+
+@router.post("/redo/{assignment_id}", response_model=ApiResponse[AssignmentRead])
 def redo_assignment(
     assignment_id: int,
     db: Session = Depends(get_db),
@@ -324,7 +353,6 @@ def redo_assignment(
     )
     updated = update_assignment(db, assignment_id, update)
 
-    # Sync task status to in_progress
     task = get_task(db, assignment.task_id)
     if task and task.status != TaskStatus.in_progress:
         update_task(db, task.id, TaskUpdate(status=TaskStatus.in_progress))

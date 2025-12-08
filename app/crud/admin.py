@@ -9,18 +9,22 @@ from app.models.reward import Reward, RewardStatus
 from app.schemas.admin import SiteStatistics
 
 
-def list_users(db: Session, skip: int = 0, limit: int = 20) -> List[User]:
+def list_users(db: Session, skip: int = 0, limit: int = 20, username: Optional[str] = None) -> List[User]:
     """List users with pagination.
     
     Args:
         db: Database session.
         skip: Records to skip.
         limit: Records to return.
+        username: Optional username filter (fuzzy search).
     
     Returns:
         List of User objects.
     """
-    return db.query(User).offset(skip).limit(limit).all()
+    query = db.query(User)
+    if username:
+        query = query.filter(User.username.ilike(f"%{username}%"))
+    return query.offset(skip).limit(limit).all()
 
 
 def get_user(db: Session, user_id: int) -> Optional[User]:

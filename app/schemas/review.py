@@ -24,6 +24,7 @@ class ReviewRead(ReviewBase):
     reviewer_id: int
     review_time: Optional[datetime]
     task_title: Optional[str] = None
+    submitter_username: Optional[str] = None
 
     class Config:
         orm_mode = True

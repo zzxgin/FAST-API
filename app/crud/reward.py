@@ -46,6 +46,9 @@ def list_rewards(
     limit: int = 20,
     user_name: Optional[str] = None,
     task_title: Optional[str] = None,
+    task_status: Optional[str] = None,
+    reward_status: Optional[RewardStatus] = None,
+    publisher_id: Optional[int] = None,
     sort_by_time: Optional[str] = None,  # 'asc' or 'desc'
     sort_by_amount: Optional[str] = None,  # 'asc' or 'desc'
 ):
@@ -54,14 +57,26 @@ def list_rewards(
         joinedload(Reward.assignment).joinedload("task")
     )
 
-    if user_name or task_title:
+    if user_name or task_title or task_status or publisher_id:
         query = query.join(TaskAssignment, Reward.assignment_id == TaskAssignment.id)
         
         if user_name:
             query = query.join(User, TaskAssignment.user_id == User.id).filter(User.username.ilike(f"%{user_name}%"))
         
-        if task_title:
-            query = query.join(Task, TaskAssignment.task_id == Task.id).filter(Task.title.ilike(f"%{task_title}%"))
+        if task_title or task_status or publisher_id:
+            query = query.join(Task, TaskAssignment.task_id == Task.id)
+            
+            if task_title:
+                query = query.filter(Task.title.ilike(f"%{task_title}%"))
+            
+            if task_status:
+                query = query.filter(Task.status == task_status)
+                
+            if publisher_id:
+                query = query.filter(Task.publisher_id == publisher_id)
+
+    if reward_status:
+        query = query.filter(Reward.status == reward_status)
 
     if sort_by_time:
         if sort_by_time.lower() == 'asc':
@@ -113,6 +128,8 @@ def get_reward_stats(db: Session):
             result["total_amount"] += float(amount)
             
     return result
+
+
 
 def get_reward_by_assignment_id(db: Session, assignment_id: int):
     return db.query(Reward).filter(Reward.assignment_id == assignment_id).first()

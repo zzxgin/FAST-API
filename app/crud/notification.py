@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.models.notification import Notification
 from app.schemas.notification import NotificationCreate, NotificationUpdate
 from datetime import datetime
+from app.models.assignment import TaskAssignment, AssignmentStatus
 
 def create_notification(db: Session, notification: NotificationCreate):
     db_notification = Notification(
@@ -32,3 +33,23 @@ def update_notification(db: Session, notification_id: int, notification_update: 
     db.commit()
     db.refresh(db_notification)
     return db_notification
+
+def notify_rejected_applicants(db: Session, task_id: int, accepted_assignment_id: int, task_title: str):
+    """Notify other applicants that the task has been assigned to someone else."""
+    rejected_assignments = db.query(TaskAssignment).filter(
+        TaskAssignment.task_id == task_id,
+        TaskAssignment.id != accepted_assignment_id,
+        TaskAssignment.status == AssignmentStatus.task_pending
+    ).all()
+
+    notifications = []
+    for assignment in rejected_assignments:
+        notifications.append(Notification(
+            user_id=assignment.user_id,
+            content=f"您申请的任务《{task_title}》已被其他人接取，您的申请已被拒绝。",
+            created_at=datetime.utcnow()
+        ))
+    
+    if notifications:
+        db.add_all(notifications)
+        db.commit()

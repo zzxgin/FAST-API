@@ -27,6 +27,7 @@ def admin_only(user = Depends(get_current_user)):
 def list_users(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=1000, description="Number of records to return"),
+    username: str = Query(None, description="Filter by username (fuzzy search)"),
     db: Session = Depends(get_db),
     _=Depends(admin_only)
 ):
@@ -35,7 +36,7 @@ def list_users(
     - Admin only.
     - Max limit: 100
     """
-    users = crud_admin.list_users(db, skip=skip, limit=limit)
+    users = crud_admin.list_users(db, skip=skip, limit=limit, username=username)
     return success_response(data=users, message="获取成功")
 
 
