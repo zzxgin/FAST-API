@@ -4,24 +4,26 @@ All endpoints use OpenAPI English doc comments.
 """
 
 import os
-from typing import List
 from datetime import datetime
+from typing import List
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
 from app.core.database import get_db
 from app.core.response import ApiResponse, success_response
 from app.core.security import get_current_user
 from app.crud.assignment import (
     create_assignment,
     get_assignment,
-    get_assignments_by_user,
     get_assignments_by_task,
+    get_assignments_by_user,
     update_assignment,
 )
 from app.crud.review import create_review
-from app.crud.user import get_first_admin
 from app.crud.task import get_task, update_task
+from app.crud.user import get_first_admin
 from app.models.assignment import AssignmentStatus
 from app.models.review import ReviewResult, ReviewType
 from app.models.task import TaskStatus
@@ -166,14 +168,28 @@ def submit_assignment(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    
+    """Submit an assignment.
 
+    Args:
+        assignment_id: The ID of the assignment to submit.
+        submit_content: The content of the submission.
+        file: The file to upload.
+        db: Database session.
+        current_user: The currently authenticated user.
+
+    Returns:
+        ApiResponse: The updated assignment data.
+
+    Raises:
+        HTTPException: If assignment not found or permission denied.
+    """
     assignment = get_assignment(db, assignment_id)
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
     if assignment.user_id != current_user.id:
         raise HTTPException(
-            status_code=403, detail="No permission to submit for this assignment"
+            status_code=403,
+            detail="No permission to submit for this assignment",
         )
 
     file_path = None
@@ -345,7 +361,6 @@ def redo_assignment(
     )
     updated = update_assignment(db, assignment_id, update)
 
-    # Sync task status to in_progress
     task = get_task(db, assignment.task_id)
     if task and task.status != TaskStatus.in_progress:
         update_task(db, task.id, TaskUpdate(status=TaskStatus.in_progress))

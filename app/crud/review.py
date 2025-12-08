@@ -3,17 +3,30 @@
 This module intentionally keeps only simple data operations on the Review model.
 All business rules (assignment/task/reward/notifications) are handled at the API layer.
 """
-from typing import  Optional
-from sqlalchemy.orm import Session, joinedload
+
 from datetime import datetime
-from app.models.review import Review, ReviewType, ReviewResult
+from typing import Optional
+
+from sqlalchemy.orm import Session, joinedload
+
 from app.models.assignment import TaskAssignment
+from app.models.review import Review, ReviewResult, ReviewType
 from app.models.task import Task
 from app.models.user import User
 from app.schemas.review import ReviewCreate, ReviewUpdate
 
+
 def create_review(db: Session, review: ReviewCreate, reviewer_id: int):
-    """Create a review row only (no business side effects)."""
+    """Create a review row only (no business side effects).
+
+    Args:
+        db: Database session.
+        review: Review creation data.
+        reviewer_id: ID of the reviewer.
+
+    Returns:
+        Created Review object.
+    """
     db_review = Review(
         assignment_id=review.assignment_id,
         reviewer_id=reviewer_id,
@@ -27,18 +40,54 @@ def create_review(db: Session, review: ReviewCreate, reviewer_id: int):
     db.refresh(db_review)
     return db_review
 
+
 def get_review(db: Session, review_id: int):
+    """Get review by ID.
+
+    Args:
+        db: Database session.
+        review_id: Review ID.
+
+    Returns:
+        Review object or None.
+    """
     return db.query(Review).filter(Review.id == review_id).first()
 
-def get_pending_review(db: Session, assignment_id: int, review_type: ReviewType):
-    """Get the pending review for a specific assignment and type."""
-    return db.query(Review).filter(
-        Review.assignment_id == assignment_id,
-        Review.review_type == review_type,
-        Review.review_result == ReviewResult.pending
-    ).first()
+
+def get_pending_review(
+    db: Session, assignment_id: int, review_type: ReviewType
+):
+    """Get the pending review for a specific assignment and type.
+
+    Args:
+        db: Database session.
+        assignment_id: Assignment ID.
+        review_type: Type of review.
+
+    Returns:
+        Review object or None.
+    """
+    return (
+        db.query(Review)
+        .filter(
+            Review.assignment_id == assignment_id,
+            Review.review_type == review_type,
+            Review.review_result == ReviewResult.pending,
+        )
+        .first()
+    )
+
 
 def get_reviews_by_assignment(db: Session, assignment_id: int):
+    """Get all reviews for an assignment.
+
+    Args:
+        db: Database session.
+        assignment_id: Assignment ID.
+
+    Returns:
+        List of Review objects.
+    """
     return db.query(Review).filter(Review.assignment_id == assignment_id).all()
 
 
@@ -67,8 +116,27 @@ def list_reviews(
     - publisher_id (via join on TaskAssignment and Task)
     - submitter_username (via join on TaskAssignment and User)
     - review_time between start_time and end_time
+
+    Args:
+        db: Database session.
+        skip: Number of records to skip.
+        limit: Max number of records to return.
+        review_type: Filter by review type.
+        review_result: Filter by review result.
+        assignment_id: Filter by assignment ID.
+        task_id: Filter by task ID.
+        task_title: Filter by task title.
+        publisher_id: Filter by publisher ID.
+        submitter_username: Filter by submitter username.
+        start_time: Filter by start time.
+        end_time: Filter by end time.
+
+    Returns:
+        List of Review objects.
     """
-    query = db.query(Review).options(joinedload(Review.assignment).joinedload("task"))
+    query = db.query(Review).options(
+        joinedload(Review.assignment).joinedload("task")
+    )
 
     if review_type is not None:
         query = query.filter(Review.review_type == review_type)
@@ -76,15 +144,21 @@ def list_reviews(
         query = query.filter(Review.review_result == review_result)
     if assignment_id is not None:
         query = query.filter(Review.assignment_id == assignment_id)
-    
+
     if submitter_username is not None:
         query = query.join(User, Review.reviewer_id == User.id)
         query = query.filter(User.username.ilike(f"%{submitter_username}%"))
 
-    if task_id is not None or task_title is not None or publisher_id is not None:
+    if (
+        task_id is not None
+        or task_title is not None
+        or publisher_id is not None
+    ):
 
-        query = query.join(TaskAssignment, TaskAssignment.id == Review.assignment_id)
-        
+        query = query.join(
+            TaskAssignment, TaskAssignment.id == Review.assignment_id
+        )
+
         if task_id is not None:
             query = query.filter(TaskAssignment.task_id == task_id)
 
@@ -103,8 +177,18 @@ def list_reviews(
     query = query.order_by(Review.id.desc()).offset(skip).limit(limit)
     return query.all()
 
+
 def update_review(db: Session, review_id: int, review_update: ReviewUpdate):
-    """Update Review columns only (no business side effects)."""
+    """Update Review columns only (no business side effects).
+
+    Args:
+        db: Database session.
+        review_id: Review ID.
+        review_update: Update data.
+
+    Returns:
+        Updated Review object or None.
+    """
     db_review = get_review(db, review_id)
     if not db_review:
         return None
@@ -114,20 +198,32 @@ def update_review(db: Session, review_id: int, review_update: ReviewUpdate):
     db.refresh(db_review)
     return db_review
 
-def reject_other_pending_reviews(db: Session, task_id: int, accepted_assignment_id: int):
-    """Reject all other pending acceptance reviews for a task once one is accepted."""
+
+def reject_other_pending_reviews(
+    db: Session, task_id: int, accepted_assignment_id: int
+):
+    """Reject all other pending acceptance reviews for a task once one is accepted.
+
+    Args:
+        db: Database session.
+        task_id: Task ID.
+        accepted_assignment_id: Accepted assignment ID.
+    """
     db.query(Review).filter(
         Review.review_type == ReviewType.acceptance_review,
         Review.review_result == ReviewResult.pending,
         Review.assignment_id.in_(
             db.query(TaskAssignment.id).filter(
                 TaskAssignment.task_id == task_id,
-                TaskAssignment.id != accepted_assignment_id
+                TaskAssignment.id != accepted_assignment_id,
             )
-        )
-    ).update({
-        Review.review_result: ReviewResult.rejected,
-        Review.review_comment: "自动拒绝：该任务已被其他申请通过",
-        Review.review_time: datetime.utcnow()
-    }, synchronize_session=False)
+        ),
+    ).update(
+        {
+            Review.review_result: ReviewResult.rejected,
+            Review.review_comment: "自动拒绝：该任务已被其他申请通过",
+            Review.review_time: datetime.utcnow(),
+        },
+        synchronize_session=False,
+    )
     db.commit()
