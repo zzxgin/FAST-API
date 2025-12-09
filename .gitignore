@@ -31,6 +31,8 @@ add*.sql
 # Docker
 *.pid
 docker-compose.override.yml
+docker-compose.prod.yml
+mysql-standalone.yml
 
 # Alembic
 alembic/versions/
