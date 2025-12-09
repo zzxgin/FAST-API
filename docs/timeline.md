@@ -48,6 +48,5 @@
 | F4-T2 | 自动化文档生成 | 后端负责人 | 0.5 天 | docs/openapi.json、docs/swagger.html，FastAPI 自动生成文档可访问 |
 | F4-T3 | Docker 镜像与部署脚本 | 后端负责人 | 0.5 天 | docker/Dockerfile、docker/docker-compose.yml，部署脚本（如 scripts/deploy.sh） | ✅ 已完成 (Completed) | 2025-12-08 |
 | F4-T4 | CI/CD 集成 | 后端负责人 | 1 天 | .github/workflows/ci.yml，自动测试与部署流程脚本 |
-
 ---
 
