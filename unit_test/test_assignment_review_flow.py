@@ -282,6 +282,7 @@ class TestErrorHandling:
 class TestConcurrency:
     """Test concurrency scenarios."""
 
+    # @pytest.mark.skip(reason="SQLite concurrency issues in test environment")
     def test_concurrent_accept_task(self, client, db_session, test_publisher, test_user, test_admin):
         """
         Test multiple users trying to accept the same task simultaneously.
@@ -290,12 +291,18 @@ class TestConcurrency:
         from app.core.security import create_access_token
         from app.main import app
         from app.core.database import get_db
-        from sqlalchemy import create_engine
+        from sqlalchemy import create_engine, text
         from sqlalchemy.orm import sessionmaker
 
         # Setup separate sessions for threads
         SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-        engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+        # Increase timeout to handle locking
+        engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False, "timeout": 30})
+        
+        # Enable WAL mode for better concurrency
+        with engine.connect() as connection:
+            connection.execute(text("PRAGMA journal_mode=WAL"))
+
         TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
         def override_get_db_new_session():
@@ -355,16 +362,22 @@ class TestConcurrency:
             app.dependency_overrides = {}
 
 
+    # @pytest.mark.skip(reason="SQLite concurrency issues in test environment")
     def test_concurrent_review_same_assignment(self, client, admin_headers, db_session, test_publisher, test_user, test_admin):
         """Test concurrent reviews on the same assignment."""
         from app.main import app
         from app.core.database import get_db
-        from sqlalchemy import create_engine
+        from sqlalchemy import create_engine, text
         from sqlalchemy.orm import sessionmaker
 
         # Setup separate sessions for threads
         SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-        engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+        engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False, "timeout": 30})
+        
+        # Enable WAL mode
+        with engine.connect() as connection:
+            connection.execute(text("PRAGMA journal_mode=WAL"))
+
         TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
         def override_get_db_new_session():

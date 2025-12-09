@@ -19,6 +19,7 @@ class TestTaskPublish:
         assert data["code"] == 0
         assert data["data"]["title"] == "Test Task"
         assert data["data"]["reward_amount"] == 100.0
+        assert data["data"]["status"] == "open"
 
     def test_publish_task_unauthorized(self, client):
         """Test publishing task without authentication."""
@@ -321,6 +322,7 @@ class TestTaskAccept:
         assert response.status_code == 200
         data = response.json()
         assert data["code"] == 0
+        assert data["data"]["status"] == "in_progress"
 
     def test_accept_task_unauthorized(self, client, db_session, test_publisher):
         """Test accepting task without authentication."""
@@ -341,4 +343,20 @@ class TestTaskAccept:
     def test_accept_nonexistent_task(self, client, auth_headers):
         """Test accepting non-existent task."""
         response = client.post("/api/tasks/accept/99999", headers=auth_headers)
+        assert response.status_code == 400
+
+    def test_accept_task_already_accepted(self, client, db_session, test_publisher, auth_headers):
+        """Test accepting a task that is not open."""
+        task = Task(
+            title="InProgress Task",
+            description="Description",
+            publisher_id=test_publisher.id,
+            reward_amount=50.0,
+            status=TaskStatus.in_progress
+        )
+        db_session.add(task)
+        db_session.commit()
+        db_session.refresh(task)
+
+        response = client.post(f"/api/tasks/accept/{task.id}", headers=auth_headers)
         assert response.status_code == 400

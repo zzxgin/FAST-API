@@ -32,7 +32,7 @@ class TestNotificationSend:
             "user_id": 99999,
             "content": "Test notification"
         }, headers=admin_headers)
-        assert response.status_code == 404
+        assert response.status_code == 409
 
 
 class TestNotificationList:

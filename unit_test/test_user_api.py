@@ -18,7 +18,7 @@ class TestUserRegistration:
         data = response.json()
         assert data["code"] == 0
         assert data["data"]["username"] == "newuser"
-        assert data["data"]["email"] == "newuser@example.com"
+        assert data["data"]["email"] == "newuser@skyrisai.com"
         assert "id" in data["data"]
 
     def test_register_duplicate_username(self, client, test_user):

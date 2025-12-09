@@ -236,7 +236,7 @@ class TestRewardUpdate:
         db_session.commit()
         db_session.refresh(reward)
 
-        response = client.put(f"/api/reward/{reward.id}", json={
+        response = client.post(f"/api/reward/{reward.id}", json={
             "status": "issued"
         }, headers=admin_headers)
         assert response.status_code == 200
@@ -273,14 +273,14 @@ class TestRewardUpdate:
         db_session.commit()
         db_session.refresh(reward)
 
-        response = client.put(f"/api/reward/{reward.id}", json={
+        response = client.post(f"/api/reward/{reward.id}", json={
             "status": "issued"
         }, headers=auth_headers)
         assert response.status_code == 403
 
     def test_update_nonexistent_reward(self, client, admin_headers):
         """Test updating non-existent reward."""
-        response = client.put("/api/reward/99999", json={
+        response = client.post("/api/reward/99999", json={
             "status": "issued"
         }, headers=admin_headers)
         assert response.status_code == 404
@@ -314,7 +314,7 @@ class TestRewardUpdate:
         db_session.commit()
         db_session.refresh(reward)
 
-        response = client.put(f"/api/reward/{reward.id}", json={
+        response = client.post(f"/api/reward/{reward.id}", json={
             "status": "issued"
         })
         assert response.status_code == 401
