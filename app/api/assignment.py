@@ -98,6 +98,13 @@ def accept_task(
             data=AssignmentRead.from_orm(created),
             message=f"接取任务成功，已生成待审核记录 review_id={pending_review.id}",
         )
+    
+    # If no admin found, just return success without review (or maybe we should create a review anyway?)
+    # For now, let's return success.
+    return success_response(
+        data=AssignmentRead.from_orm(created),
+        message="接取任务成功"
+    )
 
 
 @router.get("/{assignment_id}", response_model=ApiResponse[AssignmentRead])

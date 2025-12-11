@@ -31,7 +31,7 @@ class ApiResponse(BaseModel, Generic[T]):
     
     class Config:
         # 允许从 ORM 模型创建
-        from_attributes = True
+        orm_mode = True
 
 
 def success_response(data: Any = None, message: str = "操作成功") -> dict:

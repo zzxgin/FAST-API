@@ -3,6 +3,7 @@ from app.api import user, auth, tasks, assignment, review, reward, notifications
 from fastapi.middleware.cors import CORSMiddleware
 
 # from app.core.exception_handler import global_exception_handler, custom_http_exception_handler
+from app.core.logger import logger
 from fastapi.exceptions import RequestValidationError
 from fastapi import status, HTTPException
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -51,6 +52,10 @@ app.add_exception_handler(IntegrityError, db_integrity_exception_handler)
 app.add_exception_handler(SQLAlchemyError, db_exception_handler)
 # 6. 所有未捕获的异常 → 兜底处理器（最后注册）
 app.add_exception_handler(Exception, global_exception_handler)
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("SkyrisReward Backend started")
 
 @app.get("/")
 def read_root():

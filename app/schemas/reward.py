@@ -3,13 +3,13 @@ Reward Pydantic schemas for API validation.
 """
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.models.reward import RewardStatus
 from app.models.task import TaskStatus
 
 class RewardBase(BaseModel):
     assignment_id: int
-    amount: float
+    amount: float = Field(..., ge=0)
 
 class RewardCreate(RewardBase):
     pass
