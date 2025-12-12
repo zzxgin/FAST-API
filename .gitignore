@@ -18,6 +18,7 @@ env/
 
 # Logs
 *.log
+logs
 
 # Test/coverage
 htmlcov/
@@ -59,3 +60,4 @@ SMOKE_TEST_REPORT.md
 #unit_test
 test.db
 report/
+coverage_reports/
