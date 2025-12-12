@@ -2,79 +2,93 @@ stages:
   - test
   - deploy
 
-variables:
-  # 数据库测试配置 (用于单元测试)
-  MYSQL_HOST: "mysql"
-  MYSQL_DATABASE: "test_db"
-  MYSQL_ROOT_PASSWORD: "root"
+# 缓存配置
+cache:
+  paths:
+    - .pip-cache/
 
-# --- 测试阶段 ---
-unit_test:
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+
+# 单元测试阶段
+test:unit:
   stage: test
   image: python:3.12
   tags:
     - docker
-  services:
-    - name: mysql:8.0
-      command: ["--default-authentication-plugin=mysql_native_password"]
-  variables:
-    # 覆盖应用配置以连接测试数据库
-    MYSQL_HOST: "mysql"
-    MYSQL_PORT: "3306"
-    MYSQL_USER: "root"
-    MYSQL_PASSWORD: "root"
-    MYSQL_DATABASE: "test_db"
-    SECRET_KEY: "test_secret_key"
   before_script:
+    # 安装系统依赖 (mysqlclient 需要)
     - apt-get update && apt-get install -y default-libmysqlclient-dev build-essential pkg-config
+    # 升级 pip
     - pip install --upgrade pip
+    # 安装项目依赖
     - pip install -r requirements.txt
   script:
-    - pytest unit_test/ --cov=app --cov-report=term-missing --cov-report=xml
-  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
-  artifacts:
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage.xml
+    # 运行测试
+    - pytest unit_test/
+  # 允许失败（可选）
+  # allow_failure: true
 
-# --- 容器化部署阶段 (不推送仓库) ---
+# 部署阶段 - 开发环境
 deploy:dev:
-  variables:
-    APP_CONTAINER_NAME: "skyris-reward-backend-dev" 
-    APP_IMAGE_NAME: "skyris-reward-backend-dev"
-    HOST_PORT: "8000"
-    CONTAINER_PORT: "8000"
-    APP_VERSION: "latest"
+  stage: deploy
+  image: docker:28-dind
   tags:
     - docker
-  stage: deploy
-  image:
-    name: docker:24.0.5-dind
-    pull_policy: if-not-present
+  variables:
+    APP_CONTAINER_NAME: "skyris-backend-container-dev"
+    APP_IMAGE_NAME: "docker-skyris-backend-dev"
+    HOST_PORT: "8000"
+    APP_VERSION: "latest"
   script:
-    - echo "部署容器化应用 (Backend)"
-    # 停止并删除旧容器
+    - echo "🚀 开始部署开发环境..."
+    # 清理旧容器
     - if [ $(docker ps -q -f name=$APP_CONTAINER_NAME) ]; then docker stop $APP_CONTAINER_NAME; fi
     - if [ $(docker ps -aq -f name=$APP_CONTAINER_NAME) ]; then docker rm $APP_CONTAINER_NAME; fi
     
-    # 创建镜像保存目录
-    - mkdir -p ${CI_PROJECT_DIR}/docker/images
-    
-    # 构建镜像 (使用 docker/Dockerfile, 上下文为项目根目录)
-    - docker build -t ${APP_IMAGE_NAME}:${APP_VERSION} -f ${CI_PROJECT_DIR}/docker/Dockerfile ${CI_PROJECT_DIR}
+    # 构建镜像 (使用 docker/Dockerfile，上下文为当前目录)
+    - docker build -t ${APP_IMAGE_NAME}:${APP_VERSION} -f docker/Dockerfile .
     
     # 运行容器
-    # 注意：这里使用了 --net=host 或者需要确保数据库连接正确。
-    # 如果数据库在宿主机，可能需要 --add-host=host.docker.internal:host-gateway
-    # 这里仅演示基本的 docker run，实际生产可能需要注入环境变量 (-e KEY=VAL)
-    - docker run -id -p ${HOST_PORT}:${CONTAINER_PORT} --restart always --name ${APP_CONTAINER_NAME} ${APP_IMAGE_NAME}:${APP_VERSION}
+    # 注意：实际部署时可能需要挂载 .env 文件或传递环境变量
+    - docker run -d -p ${HOST_PORT}:8000 --restart always --name ${APP_CONTAINER_NAME} ${APP_IMAGE_NAME}:${APP_VERSION}
     
-    # 保存镜像为 tar 包 (作为构建产物)
-    - docker save $APP_IMAGE_NAME:$APP_VERSION > ${CI_PROJECT_DIR}/docker/images/${APP_IMAGE_NAME}.tar
+    # 保存镜像 (可选)
+    - mkdir -p docker/images
+    - docker save $APP_IMAGE_NAME:$APP_VERSION > docker/images/${APP_IMAGE_NAME}.tar
   artifacts:
     paths:
       - docker/images/
     expire_in: 3 days
   only:
     - develop
+
+# 部署阶段 - 生产环境
+deploy:prod:
+  stage: deploy
+  image: docker:28-dind
+  tags:
+    - docker
+  variables:
+    APP_CONTAINER_NAME: "skyris-backend-container"
+    APP_IMAGE_NAME: "docker-skyris-backend"
+    HOST_PORT: "8001" # 生产环境端口，避免冲突
+    APP_VERSION: "latest"
+  script:
+    - echo "🚀 开始部署生产环境..."
+    - if [ $(docker ps -q -f name=$APP_CONTAINER_NAME) ]; then docker stop $APP_CONTAINER_NAME; fi
+    - if [ $(docker ps -aq -f name=$APP_CONTAINER_NAME) ]; then docker rm $APP_CONTAINER_NAME; fi
+    
+    - docker build -t ${APP_IMAGE_NAME}:${APP_VERSION} -f docker/Dockerfile .
+    
+    - docker run -d -p ${HOST_PORT}:8000 --restart always --name ${APP_CONTAINER_NAME} ${APP_IMAGE_NAME}:${APP_VERSION}
+    
+    - mkdir -p docker/images
+    - docker save $APP_IMAGE_NAME:$APP_VERSION > docker/images/${APP_IMAGE_NAME}.tar
+  artifacts:
+    paths:
+      - docker/images/
+    expire_in: 7 days
+  only:
+    - main
+  when: manual
