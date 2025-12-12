@@ -1,0 +1,68 @@
+stages:
+  - test
+  - deploy
+
+variables:
+  MYSQL_HOST: "mysql"
+  MYSQL_DATABASE: "test_db"
+  MYSQL_ROOT_PASSWORD: "root"
+
+unit_test:
+  stage: test
+  image: python:3.12
+  services:
+    - name: mysql:8.0
+      command: ["--default-authentication-plugin=mysql_native_password"]
+  variables:
+    MYSQL_HOST: "mysql"
+    MYSQL_PORT: "3306"
+    MYSQL_USER: "root"
+    MYSQL_PASSWORD: "root"
+    MYSQL_DATABASE: "test_db"
+    SECRET_KEY: "test_secret_key"
+  before_script:
+    - apt-get update && apt-get install -y default-libmysqlclient-dev build-essential pkg-config
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+  script:
+    - pytest unit_test/ --cov=app --cov-report=term-missing --cov-report=xml
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+deploy:dev:
+  variables:
+    APP_CONTAINER_NAME: "skyris-reward-backend-dev" 
+    APP_IMAGE_NAME: "skyris-reward-backend-dev"
+    HOST_PORT: "8000"
+    CONTAINER_PORT: "8000"
+    APP_VERSION: "latest"
+  tags:
+    - docker
+  stage: deploy
+  image:
+    name: docker:24.0.5-dind
+    pull_policy: if-not-present
+  script:
+    - echo "部署容器化应用 (Backend)"
+
+    - if [ $(docker ps -q -f name=$APP_CONTAINER_NAME) ]; then docker stop $APP_CONTAINER_NAME; fi
+    - if [ $(docker ps -aq -f name=$APP_CONTAINER_NAME) ]; then docker rm $APP_CONTAINER_NAME; fi
+
+    - mkdir -p ${CI_PROJECT_DIR}/docker/images
+    
+
+    - docker build -t ${APP_IMAGE_NAME}:${APP_VERSION} -f ${CI_PROJECT_DIR}/docker/Dockerfile ${CI_PROJECT_DIR}
+
+    - docker run -id -p ${HOST_PORT}:${CONTAINER_PORT} --restart always --name ${APP_CONTAINER_NAME} ${APP_IMAGE_NAME}:${APP_VERSION}
+
+    - docker save $APP_IMAGE_NAME:$APP_VERSION > ${CI_PROJECT_DIR}/docker/images/${APP_IMAGE_NAME}.tar
+  artifacts:
+    paths:
+      - docker/images/
+    expire_in: 3 days
+  only:
+    - develop
