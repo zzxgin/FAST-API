@@ -2,10 +2,7 @@ stages:
   - test
   - deploy
 
-# 缓存配置
-cache:
-  paths:
-    - .pip-cache/
+
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
@@ -74,12 +71,7 @@ deploy:dev:
     
     # 运行容器
     # 注意：实际部署时可能需要挂载 .env 文件或传递环境变量
-    - docker run -d -p ${HOST_PORT}:8000  --restart always --name ${APP_CONTAINER_NAME}  -e "MYSQL_HOST=${MYSQL_HOST}" \
-      -e "MYSQL_PORT=${MYSQL_PORT}" \
-      -e "MYSQL_DATABASE=${MYSQL_DATABASE}" \
-      -e "MYSQL_USER=${MYSQL_USER}" \
-      -e "MYSQL_PASSWORD=${MYSQL_PASSWORD}" \
-      ${APP_IMAGE_NAME}:${APP_VERSION}
+    - docker run -d -p ${HOST_PORT}:8000 --restart always --name ${APP_CONTAINER_NAME} -e "MYSQL_HOST=${MYSQL_HOST}" -e "MYSQL_PORT=${MYSQL_PORT}" -e "MYSQL_DATABASE=${MYSQL_DATABASE}" -e "MYSQL_USER=${MYSQL_USER}" -e "MYSQL_PASSWORD=${MYSQL_PASSWORD}" ${APP_IMAGE_NAME}:${APP_VERSION}
     
   only:
     - develop
