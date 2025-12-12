@@ -13,7 +13,7 @@ variables:
 # 单元测试阶段
 test:unit:
   stage: test
-  image: python:3.12-slim
+  image: python:3.12
   tags:
     - docker
   before_script:
@@ -33,8 +33,17 @@ test:unit:
     # 安装项目依赖
     - pip install -r requirements.txt
   script:
-    # 运行测试
-    - pytest unit_test/
+    # 创建报告目录
+    - mkdir -p report
+    # 运行测试并生成报告 (HTML报告和JUnit XML报告)
+    - pytest unit_test/ --html=report/report.html --self-contained-html --junitxml=report/junit.xml
+  artifacts:
+    paths:
+      - report/
+    expire_in: 7 days
+    when: always
+    reports:
+      junit: report/junit.xml
   # 允许失败（可选）
   # allow_failure: true
 
@@ -49,7 +58,10 @@ deploy:dev:
     APP_IMAGE_NAME: "docker-skyris-backend-dev"
     HOST_PORT: "8000"
     APP_VERSION: "latest"
+    GITLAB_DOMAIN: "git.skyrisai.com"
   script:
+    - echo "192.168.1.20 $GITLAB_DOMAIN" >> /etc/hosts
+    - cat /etc/hosts
     - echo "🚀 开始部署开发环境..."
     # 清理旧容器
     - if [ $(docker ps -q -f name=$APP_CONTAINER_NAME) ]; then docker stop $APP_CONTAINER_NAME; fi
@@ -83,7 +95,10 @@ deploy:prod:
     APP_IMAGE_NAME: "docker-skyris-backend"
     HOST_PORT: "8001" # 生产环境端口，避免冲突
     APP_VERSION: "latest"
+    GITLAB_DOMAIN: "git.skyrisai.com"
   script:
+    - echo "192.168.1.20 $GITLAB_DOMAIN" >> /etc/hosts
+    - cat /etc/hosts
     - echo "🚀 开始部署生产环境..."
     - if [ $(docker ps -q -f name=$APP_CONTAINER_NAME) ]; then docker stop $APP_CONTAINER_NAME; fi
     - if [ $(docker ps -aq -f name=$APP_CONTAINER_NAME) ]; then docker rm $APP_CONTAINER_NAME; fi
