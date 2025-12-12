@@ -9,6 +9,12 @@ WORKDIR /app
 # PYTHONUNBUFFERED: Prevents Python from buffering stdout and stderr
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+# Replace apt source with Aliyun mirror for faster downloads
+RUN if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+        sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources; \
+    elif [ -f /etc/apt/sources.list ]; then \
+        sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list; \
+    fi
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -22,6 +28,9 @@ COPY requirements.txt /app/
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Configure pip to use Aliyun mirror
+RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
 
 # Copy the current directory contents into the container at /app
 COPY . /app/
