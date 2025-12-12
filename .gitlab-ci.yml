@@ -58,10 +58,7 @@ deploy:dev:
     APP_IMAGE_NAME: "docker-skyris-backend-dev"
     HOST_PORT: "8000"
     APP_VERSION: "latest"
-    GITLAB_DOMAIN: "git.skyrisai.com"
   script:
-    - echo "192.168.1.20 $GITLAB_DOMAIN" >> /etc/hosts
-    - cat /etc/hosts
     - echo "🚀 开始部署开发环境..."
     # 清理旧容器
     - if [ $(docker ps -q -f name=$APP_CONTAINER_NAME) ]; then docker stop $APP_CONTAINER_NAME; fi
@@ -74,13 +71,6 @@ deploy:dev:
     # 注意：实际部署时可能需要挂载 .env 文件或传递环境变量
     - docker run -d -p ${HOST_PORT}:8000 --restart always --name ${APP_CONTAINER_NAME} ${APP_IMAGE_NAME}:${APP_VERSION}
     
-    # 保存镜像 (可选)
-    - mkdir -p docker/images
-    - docker save $APP_IMAGE_NAME:$APP_VERSION > docker/images/${APP_IMAGE_NAME}.tar
-  artifacts:
-    paths:
-      - docker/images/
-    expire_in: 3 days
   only:
     - develop
 
@@ -95,10 +85,7 @@ deploy:prod:
     APP_IMAGE_NAME: "docker-skyris-backend"
     HOST_PORT: "8001" # 生产环境端口，避免冲突
     APP_VERSION: "latest"
-    GITLAB_DOMAIN: "git.skyrisai.com"
   script:
-    - echo "192.168.1.20 $GITLAB_DOMAIN" >> /etc/hosts
-    - cat /etc/hosts
     - echo "🚀 开始部署生产环境..."
     - if [ $(docker ps -q -f name=$APP_CONTAINER_NAME) ]; then docker stop $APP_CONTAINER_NAME; fi
     - if [ $(docker ps -aq -f name=$APP_CONTAINER_NAME) ]; then docker rm $APP_CONTAINER_NAME; fi
@@ -107,12 +94,6 @@ deploy:prod:
     
     - docker run -d -p ${HOST_PORT}:8000 --restart always --name ${APP_CONTAINER_NAME} ${APP_IMAGE_NAME}:${APP_VERSION}
     
-    - mkdir -p docker/images
-    - docker save $APP_IMAGE_NAME:$APP_VERSION > docker/images/${APP_IMAGE_NAME}.tar
-  artifacts:
-    paths:
-      - docker/images/
-    expire_in: 7 days
   only:
     - main
   when: manual
