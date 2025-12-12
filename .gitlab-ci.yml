@@ -58,6 +58,11 @@ deploy:dev:
     APP_IMAGE_NAME: "docker-skyris-backend-dev"
     HOST_PORT: "8000"
     APP_VERSION: "latest"
+    MYSQL_HOST: "47.100.51.2"
+    MYSQL_PORT: "3307"
+    MYSQL_DATABASE: "reward_db"
+    MYSQL_USER: "reward_user"
+    MYSQL_PASSWORD: "reward_passwd"
   script:
     - echo "🚀 开始部署开发环境..."
     # 清理旧容器
@@ -69,7 +74,12 @@ deploy:dev:
     
     # 运行容器
     # 注意：实际部署时可能需要挂载 .env 文件或传递环境变量
-    - docker run -d -p ${HOST_PORT}:8000 --restart always --name ${APP_CONTAINER_NAME} ${APP_IMAGE_NAME}:${APP_VERSION}
+    - docker run -d -p ${HOST_PORT}:8000  --restart always --name ${APP_CONTAINER_NAME}  -e "MYSQL_HOST=${MYSQL_HOST}" \
+      -e "MYSQL_PORT=${MYSQL_PORT}" \
+      -e "MYSQL_DATABASE=${MYSQL_DATABASE}" \
+      -e "MYSQL_USER=${MYSQL_USER}" \
+      -e "MYSQL_PASSWORD=${MYSQL_PASSWORD}" \
+      ${APP_IMAGE_NAME}:${APP_VERSION}
     
   only:
     - develop
