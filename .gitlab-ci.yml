@@ -10,6 +10,8 @@ variables:
 unit_test:
   stage: test
   image: python:3.12
+  tags:
+    - docker
   services:
     - name: mysql:8.0
       command: ["--default-authentication-plugin=mysql_native_password"]
