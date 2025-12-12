@@ -13,10 +13,19 @@ variables:
 # 单元测试阶段
 test:unit:
   stage: test
-  image: python:3.12
+  image: python:3.12-slim
   tags:
     - docker
   before_script:
+    # 换源：使用阿里云镜像源加速 apt 和 pip
+    - |
+      if [ -f /etc/apt/sources.list.d/debian.sources ]; then
+        sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+      elif [ -f /etc/apt/sources.list ]; then
+        sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list
+      fi
+    - pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
+    
     # 安装系统依赖 (mysqlclient 需要)
     - apt-get update && apt-get install -y default-libmysqlclient-dev build-essential pkg-config
     # 升级 pip
