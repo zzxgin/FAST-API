@@ -237,7 +237,7 @@ def reject_other_pending_reviews(
         ).update(
             {
                 Review.review_result: ReviewResult.rejected,
-                Review.review_comment: "自动拒绝：该任务已被其他申请通过",
+                Review.review_comment: "Auto-rejected: This task has been accepted by another applicant",
                 Review.review_time: datetime.utcnow(),
             },
             synchronize_session=False,

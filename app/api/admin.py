@@ -37,7 +37,7 @@ def list_users(
     - Max limit: 100
     """
     users = crud_admin.list_users(db, skip=skip, limit=limit, username=username)
-    return success_response(data=users, message="获取成功")
+    return success_response(data=users, message="Retrieved successfully")
 
 
 @router.put("/users/{user_id}", response_model=ApiResponse[AdminUserItem])
@@ -49,7 +49,7 @@ def update_user(user_id: int, update: AdminUserUpdate, db: Session = Depends(get
     user = crud_admin.update_user(db, user_id, role=update.role, password=update.password)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return success_response(data=user, message="更新成功")
+    return success_response(data=user, message="Updated successfully")
 
 
 @router.get("/tasks", response_model=ApiResponse[List[AdminTaskItem]])
@@ -65,7 +65,7 @@ def list_tasks(
     - Max limit: 1000
     """
     tasks = crud_admin.list_tasks(db, skip=skip, limit=limit)
-    return success_response(data=tasks, message="获取成功")
+    return success_response(data=tasks, message="Retrieved successfully")
 
 
 @router.put("/tasks/{task_id}", response_model=ApiResponse[AdminTaskItem])
@@ -79,7 +79,7 @@ def update_task(task_id: int, update: AdminTaskUpdate, db: Session = Depends(get
     task = crud_admin.update_task_status(db, task_id, update.status)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return success_response(data=task, message="更新成功")
+    return success_response(data=task, message="Updated successfully")
 
 
 @router.post("/tasks/{task_id}/flag", response_model=ApiResponse[AdminTaskItem])
@@ -91,7 +91,7 @@ def flag_task(task_id: int, db: Session = Depends(get_db), _=Depends(admin_only)
     task = crud_admin.flag_task(db, task_id, flagged=True)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return success_response(data=task, message="标记成功")
+    return success_response(data=task, message="Flagged successfully")
 
 
 @router.get("/statistics", response_model=ApiResponse[SiteStatistics])
@@ -102,4 +102,4 @@ def site_statistics(db: Session = Depends(get_db), _=Depends(admin_only)):
     - Returns: total users, tasks, assignments, rewards, pending reviews.
     """
     stats = crud_admin.get_site_statistics(db)
-    return success_response(data=stats, message="获取成功")
+    return success_response(data=stats, message="Retrieved successfully")
