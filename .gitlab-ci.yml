@@ -1,0 +1,113 @@
+stages:
+  - test
+  - deploy
+
+# 缓存配置
+cache:
+  paths:
+    - .pip-cache/
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+
+# 单元测试阶段
+test:unit:
+  stage: test
+  image: python:3.12
+  tags:
+    - docker
+  before_script:
+    # 换源：使用阿里云镜像源加速 apt 和 pip
+    - |
+      if [ -f /etc/apt/sources.list.d/debian.sources ]; then
+        sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+      elif [ -f /etc/apt/sources.list ]; then
+        sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list
+      fi
+    - pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
+    
+    # 安装系统依赖 (mysqlclient 需要)
+    - apt-get update && apt-get install -y default-libmysqlclient-dev build-essential pkg-config
+    # 升级 pip
+    - pip install --upgrade pip
+    # 安装项目依赖
+    - pip install -r requirements.txt
+  script:
+    # 创建报告目录
+    - mkdir -p report
+    # 运行测试并生成报告 (HTML报告, JUnit XML报告, 覆盖率报告)
+    - pytest unit_test/ --html=report/report.html --self-contained-html --junitxml=report/junit.xml --cov=app --cov-report=html:coverage_reports
+  artifacts:
+    paths:
+      - report/
+      - coverage_reports/
+    expire_in: 7 days
+    when: always
+    reports:
+      junit: report/junit.xml
+  # 允许失败（可选）
+  # allow_failure: true
+
+# 部署阶段 - 开发环境
+deploy:dev:
+  stage: deploy
+  image: docker:28-dind
+  tags:
+    - docker
+  variables:
+    APP_CONTAINER_NAME: "skyris-backend-container-dev"
+    APP_IMAGE_NAME: "docker-skyris-backend-dev"
+    HOST_PORT: "8000"
+    APP_VERSION: "latest"
+  script:
+    - echo "🚀 开始部署开发环境..."
+    # 清理旧容器
+    - if [ $(docker ps -q -f name=$APP_CONTAINER_NAME) ]; then docker stop $APP_CONTAINER_NAME; fi
+    - if [ $(docker ps -aq -f name=$APP_CONTAINER_NAME) ]; then docker rm $APP_CONTAINER_NAME; fi
+    
+    # 构建镜像 (使用 docker/Dockerfile，上下文为当前目录)
+    - docker build -t ${APP_IMAGE_NAME}:${APP_VERSION} -f docker/Dockerfile .
+    
+    # 运行容器
+    # 注意：实际部署时可能需要挂载 .env 文件或传递环境变量
+    - docker run -d -p ${HOST_PORT}:8000 --restart always --name ${APP_CONTAINER_NAME} ${APP_IMAGE_NAME}:${APP_VERSION}
+    
+    # 保存镜像 (可选)
+    - mkdir -p docker/images
+    - docker save $APP_IMAGE_NAME:$APP_VERSION > docker/images/${APP_IMAGE_NAME}.tar
+  artifacts:
+    paths:
+      - docker/images/
+    expire_in: 3 days
+  only:
+    - develop
+
+# 部署阶段 - 生产环境
+deploy:prod:
+  stage: deploy
+  image: docker:28-dind
+  tags:
+    - docker
+  variables:
+    APP_CONTAINER_NAME: "skyris-backend-container"
+    APP_IMAGE_NAME: "docker-skyris-backend"
+    HOST_PORT: "8001" # 生产环境端口，避免冲突
+    APP_VERSION: "latest"
+  script:
+    - echo "🚀 开始部署生产环境..."
+    - if [ $(docker ps -q -f name=$APP_CONTAINER_NAME) ]; then docker stop $APP_CONTAINER_NAME; fi
+    - if [ $(docker ps -aq -f name=$APP_CONTAINER_NAME) ]; then docker rm $APP_CONTAINER_NAME; fi
+    
+    - docker build -t ${APP_IMAGE_NAME}:${APP_VERSION} -f docker/Dockerfile .
+    
+    - docker run -d -p ${HOST_PORT}:8000 --restart always --name ${APP_CONTAINER_NAME} ${APP_IMAGE_NAME}:${APP_VERSION}
+    
+    - mkdir -p docker/images
+    - docker save $APP_IMAGE_NAME:$APP_VERSION > docker/images/${APP_IMAGE_NAME}.tar
+  artifacts:
+    paths:
+      - docker/images/
+    expire_in: 7 days
+  only:
+    - main
+  when: manual

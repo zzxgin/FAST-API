@@ -16,10 +16,10 @@ router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 def send_notification(notification: NotificationCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Send a notification to a user.
-    - Only admin can send notifications.
+    - admin and publisher can send notifications.
     """
     if current_user.role.value != "admin" and current_user.role.value != "publisher":
-        raise HTTPException(status_code=403, detail="Only admin can send notifications")
+        raise HTTPException(status_code=403, detail="Only admin and publisher can send notifications")
     created = create_notification(db, notification)
     return success_response(data=NotificationRead.from_orm(created), message="通知发送成功")
     

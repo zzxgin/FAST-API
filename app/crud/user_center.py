@@ -47,23 +47,27 @@ def update_user_profile(db: Session, user_id: int, profile_update: UserProfileUp
     Returns:
         Updated User instance or None
     """
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        return None
+    try:
+        user = db.query(User).filter(User.id == user_id).with_for_update().first()
+        if not user:
+            return None
 
-    update_data = profile_update.dict(exclude_unset=True)
-    
-    if "password" in update_data:
-        password = update_data.pop("password")
-        user.password_hash = pwd_context.hash(password)
+        update_data = profile_update.dict(exclude_unset=True)
+        
+        if "password" in update_data:
+            password = update_data.pop("password")
+            user.password_hash = pwd_context.hash(password)
 
-    for field, value in update_data.items():
-        setattr(user, field, value)
+        for field, value in update_data.items():
+            setattr(user, field, value)
 
-    user.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(user)
-    return user
+        user.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(user)
+        return user
+    except Exception:
+        db.rollback()
+        raise 
 
 
 def get_user_task_records(db: Session, user_id: int, status: Optional[str] = None,
