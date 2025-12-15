@@ -25,59 +25,64 @@ def create_assignment(db: Session, assignment: AssignmentCreate, user_id: int):
             accepted.
     """
 
-    task = db.query(Task).filter(Task.id == assignment.task_id).first()
-    if not task:
-        raise ValueError(f"Task with id {assignment.task_id} not found")
+    try:
 
-    if task.status != TaskStatus.open:
-        raise ValueError(
-            f"Task is not available for acceptance (current status: {task.status.value})"
-        )
+        task = db.query(Task).filter(Task.id == assignment.task_id).with_for_update().first()
+        if not task:
+            raise ValueError(f"Task with id {assignment.task_id} not found")
 
-    existing_assignment = (
-        db.query(TaskAssignment)
-        .filter(
-            TaskAssignment.task_id == assignment.task_id,
-            TaskAssignment.user_id == user_id,
-        )
-        .first()
-    )
-
-    if existing_assignment:
-        if existing_assignment.status == AssignmentStatus.task_pending:
+        if task.status != TaskStatus.open:
             raise ValueError(
-                f"You have already accepted this task (Assignment ID: {existing_assignment.id})"
-            )
-        elif (
-            existing_assignment.status
-            == AssignmentStatus.task_receivement_rejected
-        ):
-            # Reactivate assignment
-            existing_assignment.status = AssignmentStatus.task_pending
-            existing_assignment.submit_content = assignment.submit_content
-            existing_assignment.review_time = None
-            existing_assignment.submit_time = None
-            db.commit()
-            db.refresh(existing_assignment)
-            return existing_assignment
-        else:
-            raise ValueError(
-                f"You have already accepted this task (Assignment ID: {existing_assignment.id})"
+                f"Task is not available for acceptance (current status: {task.status.value})"
             )
 
-    if task.publisher_id == user_id:
-        raise ValueError("You cannot accept your own published task")
+        existing_assignment = (
+            db.query(TaskAssignment)
+            .filter(
+                TaskAssignment.task_id == assignment.task_id,
+                TaskAssignment.user_id == user_id,
+            )
+            .first()
+        )
 
-    db_assignment = TaskAssignment(
-        task_id=assignment.task_id,
-        user_id=user_id,
-        submit_content=assignment.submit_content,
-        status=AssignmentStatus.task_pending,
-    )
-    db.add(db_assignment)
-    db.commit()
-    db.refresh(db_assignment)
-    return db_assignment
+        if existing_assignment:
+            if existing_assignment.status == AssignmentStatus.task_pending:
+                raise ValueError(
+                    f"You have already accepted this task (Assignment ID: {existing_assignment.id})"
+                )
+            elif (
+                existing_assignment.status
+                == AssignmentStatus.task_receivement_rejected
+            ):
+                # Reactivate assignment
+                existing_assignment.status = AssignmentStatus.task_pending
+                existing_assignment.submit_content = assignment.submit_content
+                existing_assignment.review_time = None
+                existing_assignment.submit_time = None
+                db.commit()
+                db.refresh(existing_assignment)
+                return existing_assignment
+            else:
+                raise ValueError(
+                    f"You have already accepted this task (Assignment ID: {existing_assignment.id})"
+                )
+
+        if task.publisher_id == user_id:
+            raise ValueError("You cannot accept your own published task")
+
+        db_assignment = TaskAssignment(
+            task_id=assignment.task_id,
+            user_id=user_id,
+            submit_content=assignment.submit_content,
+            status=AssignmentStatus.task_pending,
+        )
+        db.add(db_assignment)
+        db.commit()
+        db.refresh(db_assignment)
+        return db_assignment
+    except Exception:
+        db.rollback()
+        raise
 
 
 def get_assignment(db: Session, assignment_id: int):
@@ -140,14 +145,23 @@ def update_assignment(
     Returns:
         Updated TaskAssignment object or None.
     """
-    db_assignment = get_assignment(db, assignment_id)
-    if not db_assignment:
-        return None
-    for field, value in assignment_update.dict(exclude_unset=True).items():
-        setattr(db_assignment, field, value)
-    db.commit()
-    db.refresh(db_assignment)
-    return db_assignment
+    try:
+        db_assignment = (
+            db.query(TaskAssignment)
+            .filter(TaskAssignment.id == assignment_id)
+            .with_for_update()
+            .first()
+        )
+        if not db_assignment:
+            return None
+        for field, value in assignment_update.dict(exclude_unset=True).items():
+            setattr(db_assignment, field, value)
+        db.commit()
+        db.refresh(db_assignment)
+        return db_assignment
+    except Exception:
+        db.rollback()
+        raise
 
 
 def reject_other_pending_assignments(
@@ -160,12 +174,19 @@ def reject_other_pending_assignments(
         task_id: Task ID.
         accepted_assignment_id: The ID of the accepted assignment.
     """
-    db.query(TaskAssignment).filter(
-        TaskAssignment.task_id == task_id,
-        TaskAssignment.id != accepted_assignment_id,
-        TaskAssignment.status == AssignmentStatus.task_pending,
-    ).update(
-        {TaskAssignment.status: AssignmentStatus.task_receivement_rejected},
-        synchronize_session=False,
-    )
-    db.commit()
+    try:
+        # Lock the task to ensure no new assignments are added while we reject
+        db.query(Task).filter(Task.id == task_id).with_for_update().first()
+
+        db.query(TaskAssignment).filter(
+            TaskAssignment.task_id == task_id,
+            TaskAssignment.id != accepted_assignment_id,
+            TaskAssignment.status == AssignmentStatus.task_pending,
+        ).update(
+            {TaskAssignment.status: AssignmentStatus.task_receivement_rejected},
+            synchronize_session=False,
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise 

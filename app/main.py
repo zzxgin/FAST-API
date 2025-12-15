@@ -1,17 +1,16 @@
-from fastapi import FastAPI
-from app.api import user, auth, tasks, assignment, review, reward, notifications, user_center, admin
-from fastapi.middleware.cors import CORSMiddleware
 
-# from app.core.exception_handler import global_exception_handler, custom_http_exception_handler
-from app.core.logger import logger
+from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
-from fastapi import status, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+
+from app.api import user, auth, tasks, assignment, review, reward, notifications, user_center, admin
+from app.core.logger import logger
 from app.core.exception_handler import (
     global_exception_handler,
     custom_http_exception_handler,
-    validation_exception_handler,  # 导入 RequestValidationError 专属处理器
-    db_integrity_exception_handler,  # 导入数据库完整性异常处理器
+    validation_exception_handler, 
+    db_integrity_exception_handler,  
     db_exception_handler,
 )
 

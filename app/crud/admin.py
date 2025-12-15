@@ -53,17 +53,20 @@ def update_user(db: Session, user_id: int, role: Optional[UserRole] = None, pass
     Returns:
         Updated User object if found, None otherwise.
     """
-    user = get_user(db, user_id)
-    if not user:
-        return None
-    if role is not None:
-        user.role = role
-    if password is not None:
-        print(password)
-        user.password_hash = pwd_context.hash(password)
-    db.commit()
-    db.refresh(user)
-    return user
+    try:
+        user = db.query(User).filter(User.id == user_id).with_for_update().first()
+        if not user:
+            return None
+        if role is not None:
+            user.role = role
+        if password is not None:
+            user.password_hash = pwd_context.hash(password)
+        db.commit()
+        db.refresh(user)
+        return user
+    except Exception:
+        db.rollback()
+        raise
 
 
 def list_tasks(db: Session, skip: int = 0, limit: int = 20) -> List[Task]:
@@ -104,13 +107,17 @@ def update_task_status(db: Session, task_id: int, status: TaskStatus) -> Optiona
     Returns:
         Updated Task object if found, None otherwise.
     """
-    task = get_task(db, task_id)
-    if not task:
-        return None
-    task.status = status
-    db.commit()
-    db.refresh(task)
-    return task
+    try:
+        task = db.query(Task).filter(Task.id == task_id).with_for_update().first()
+        if not task:
+            return None
+        task.status = status
+        db.commit()
+        db.refresh(task)
+        return task
+    except Exception:
+        db.rollback()
+        raise
 
 
 def flag_task(db: Session, task_id: int, flagged: bool = True) -> Optional[Task]:
@@ -126,14 +133,18 @@ def flag_task(db: Session, task_id: int, flagged: bool = True) -> Optional[Task]
     Returns:
         Updated Task object if found, None otherwise.
     """
-    task = get_task(db, task_id)
-    if not task:
-        return None
-    if flagged:
-        task.status = TaskStatus.closed
-    db.commit()
-    db.refresh(task)
-    return task
+    try:
+        task = db.query(Task).filter(Task.id == task_id).with_for_update().first()
+        if not task:
+            return None
+        if flagged:
+            task.status = TaskStatus.closed
+        db.commit()
+        db.refresh(task)
+        return task
+    except Exception:
+        db.rollback()
+        raise
 
 
 def get_site_statistics(db: Session) -> SiteStatistics:

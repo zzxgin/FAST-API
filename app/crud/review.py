@@ -27,19 +27,22 @@ def create_review(db: Session, review: ReviewCreate, reviewer_id: int):
     Returns:
         Created Review object.
     """
-    db_review = Review(
-        assignment_id=review.assignment_id,
-        reviewer_id=reviewer_id,
-        review_result=review.review_result,
-        review_type=review.review_type,
-        review_comment=review.review_comment,
-        review_time=datetime.utcnow(),
-    )
-    db.add(db_review)
-    db.commit()
-    db.refresh(db_review)
-    return db_review
-
+    try:
+        db_review = Review(
+            assignment_id=review.assignment_id,
+            reviewer_id=reviewer_id,
+            review_result=review.review_result,
+            review_type=review.review_type,
+            review_comment=review.review_comment,
+            review_time=datetime.utcnow(),
+        )
+        db.add(db_review)
+        db.commit()
+        db.refresh(db_review)
+        return db_review
+    except Exception:
+        db.rollback()
+        raise
 
 def get_review(db: Session, review_id: int):
     """Get review by ID.
@@ -189,14 +192,23 @@ def update_review(db: Session, review_id: int, review_update: ReviewUpdate):
     Returns:
         Updated Review object or None.
     """
-    db_review = get_review(db, review_id)
-    if not db_review:
-        return None
-    for field, value in review_update.dict(exclude_unset=True).items():
-        setattr(db_review, field, value)
-    db.commit()
-    db.refresh(db_review)
-    return db_review
+    try:
+        db_review = (
+            db.query(Review)
+            .filter(Review.id == review_id)
+            .with_for_update()
+            .first()
+        )
+        if not db_review:
+            return None
+        for field, value in review_update.dict(exclude_unset=True).items():
+            setattr(db_review, field, value)
+        db.commit()
+        db.refresh(db_review)
+        return db_review
+    except Exception:
+        db.rollback()
+        raise 
 
 
 def reject_other_pending_reviews(
@@ -209,21 +221,28 @@ def reject_other_pending_reviews(
         task_id: Task ID.
         accepted_assignment_id: Accepted assignment ID.
     """
-    db.query(Review).filter(
-        Review.review_type == ReviewType.acceptance_review,
-        Review.review_result == ReviewResult.pending,
-        Review.assignment_id.in_(
-            db.query(TaskAssignment.id).filter(
-                TaskAssignment.task_id == task_id,
-                TaskAssignment.id != accepted_assignment_id,
-            )
-        ),
-    ).update(
-        {
-            Review.review_result: ReviewResult.rejected,
-            Review.review_comment: "自动拒绝：该任务已被其他申请通过",
-            Review.review_time: datetime.utcnow(),
-        },
-        synchronize_session=False,
-    )
-    db.commit()
+    try:
+        # Lock the task to ensure consistency
+        db.query(Task).filter(Task.id == task_id).with_for_update().first()
+
+        db.query(Review).filter(
+            Review.review_type == ReviewType.acceptance_review,
+            Review.review_result == ReviewResult.pending,
+            Review.assignment_id.in_(
+                db.query(TaskAssignment.id).filter(
+                    TaskAssignment.task_id == task_id,
+                    TaskAssignment.id != accepted_assignment_id,
+                )
+            ),
+        ).update(
+            {
+                Review.review_result: ReviewResult.rejected,
+                Review.review_comment: "自动拒绝：该任务已被其他申请通过",
+                Review.review_time: datetime.utcnow(),
+            },
+            synchronize_session=False,
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise

@@ -32,17 +32,21 @@ def create_user(db: Session, user: UserCreate):
     Returns:
         User instance.
     """
-    hashed_password = pwd_context.hash(user.password)
-    db_user = User(
-        username=user.username,
-        password_hash=hashed_password,
-        email=user.email,
-        role=user.role
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    try:
+        hashed_password = pwd_context.hash(user.password)
+        db_user = User(
+            username=user.username,
+            password_hash=hashed_password,
+            email=user.email,
+            role=user.role
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    except Exception:
+        db.rollback()
+        raise
 
 def authenticate_user(db: Session, username: str, password: str):
     """Authenticate user credentials.

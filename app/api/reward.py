@@ -35,10 +35,10 @@ router = APIRouter(prefix="/api/reward", tags=["reward"])
 def issue_reward(reward: RewardCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """
     Issue a reward to a user for an assignment.
-    - Only admin can issue rewards.
+    - admin and publisher can issue rewards.
     """
     if current_user.role.value != "admin" and current_user.role.value != "publisher":
-        raise HTTPException(status_code=403, detail="Only admin or publisher can issue rewards")
+        raise HTTPException(status_code=403, detail="Only admin and publisher can issue rewards")
     created = create_reward(db, reward)
     return success_response(data=RewardRead.from_orm(created), message="奖励发放成功")
 @router.get("/lists", response_model=ApiResponse[List[RewardRead]])
