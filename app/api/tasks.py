@@ -23,7 +23,7 @@ def publish_task(task: TaskCreate, db: Session = Depends(get_db), current_user =
     if current_user.role.value not in ["publisher", "admin"]:
         raise HTTPException(status_code=403, detail="Only publisher and admin can publish tasks")
     created = create_task(db, task, publisher_id=current_user.id)
-    return success_response(data=TaskRead.from_orm(created), message="任务发布成功")
+    return success_response(data=TaskRead.from_orm(created), message="Task published successfully")
 
 @router.get("/search/", response_model=ApiResponse[List[TaskRead]])
 def search_task(
@@ -38,7 +38,7 @@ def search_task(
     tasks = search_tasks(db, keyword, skip=skip, limit=limit)
     return success_response(
         data=[TaskRead.from_orm(t) for t in tasks],
-        message="搜索成功"
+        message="Search successful"
     )
 
 @router.get("/{task_id}", response_model=ApiResponse[TaskRead])
@@ -49,7 +49,7 @@ def get_task_detail(task_id: int, db: Session = Depends(get_db)):
     task = get_task(db, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return success_response(data=TaskRead.from_orm(task), message="获取成功")
+    return success_response(data=TaskRead.from_orm(task), message="Retrieved successfully")
 
 @router.get("/", response_model=ApiResponse[List[TaskRead]])
 def list_tasks(
@@ -65,7 +65,7 @@ def list_tasks(
     tasks = get_task_list(db, skip=skip, limit=limit, status=status, order_by=order_by)
     return success_response(
         data=[TaskRead.from_orm(t) for t in tasks],
-        message="获取成功"
+        message="Retrieved successfully"
     )
 
 @router.put("/{task_id}", response_model=ApiResponse[TaskRead])
@@ -79,7 +79,7 @@ def update_task_detail(task_id: int, task_update: TaskUpdate, db: Session = Depe
     task = update_task(db, task_id, task_update)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return success_response(data=TaskRead.from_orm(task), message="更新成功")
+    return success_response(data=TaskRead.from_orm(task), message="Updated successfully")
 
 @router.post("/accept/{task_id}", response_model=ApiResponse[TaskRead])
 def accept_task_api(task_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
@@ -89,4 +89,4 @@ def accept_task_api(task_id: int, db: Session = Depends(get_db), current_user = 
     task = accept_task(db, task_id)
     if not task:
         raise HTTPException(status_code=400, detail="Task cannot be accepted")
-    return success_response(data=TaskRead.from_orm(task), message="接取成功")
+    return success_response(data=TaskRead.from_orm(task), message="Accepted successfully")

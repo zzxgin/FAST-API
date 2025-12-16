@@ -37,7 +37,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     user.email = f"{user.username}@skyrisai.com"
 
     created = create_user(db, user)
-    return success_response(data=UserRead.from_orm(created), message="注册成功")
+    return success_response(data=UserRead.from_orm(created), message="Registered successfully")
 
 @router.post("/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
@@ -57,7 +57,7 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     if not db_user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     access_token = create_access_token({"sub": db_user.username})
-    return success_response(data={"access_token": access_token, "token_type": "bearer"}, message="登录成功")
+    return success_response(data={"access_token": access_token, "token_type": "bearer"}, message="Login successful")
 
 @router.get("/me", response_model=ApiResponse[UserRead])
 def read_me(current_user = Depends(get_current_user)):
@@ -69,7 +69,7 @@ def read_me(current_user = Depends(get_current_user)):
     Returns:
         UserRead schema of the current user.
     """
-    return success_response(data=UserRead.from_orm(current_user), message="获取成功")
+    return success_response(data=UserRead.from_orm(current_user), message="Retrieved successfully")
 
 @router.get("/info/{username}", response_model=ApiResponse[UserRead])
 def get_user_info(username: str, db: Session = Depends(get_db)):
@@ -88,4 +88,4 @@ def get_user_info(username: str, db: Session = Depends(get_db)):
     user = get_user_by_username(db, username)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return success_response(data=UserRead.from_orm(user), message="获取成功")
+    return success_response(data=UserRead.from_orm(user), message="Retrieved successfully")

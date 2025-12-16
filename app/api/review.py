@@ -197,7 +197,7 @@ class ReviewActionHandler:
                 self.db, self.task.id, self.assignment.id
             )
 
-            return f"您接取任务《{self.task.title}》的申请已通过，可以开始做任务了！"
+            return f"Your application to accept task '{self.task.title}' has been approved. You can start the task now!"
 
         elif new_result == ReviewResult.rejected:
             self._update_assignment(
@@ -205,8 +205,8 @@ class ReviewActionHandler:
                 update_review_time=True,
             )
             self._update_task(TaskStatus.open)
-            reason = f"，原因：{comment}" if comment else ""
-            return f"您接取任务《{self.task.title}》的申请被拒绝{reason}"
+            reason = f", reason: {comment}" if comment else ""
+            return f"Your application to accept task '{self.task.title}' has been rejected{reason}"
     def _handle_submission_review(
         self, new_result: ReviewResult, comment: Optional[str]
     ) -> str:
@@ -225,7 +225,7 @@ class ReviewActionHandler:
             )
             self._update_task(TaskStatus.completed)
             self._ensure_reward_status(RewardStatus.pending)
-            return f"恭喜！您提交的任务《{self.task.title}》作业已通过审核，奖励发放中..."
+            return f"Congratulations! Your submission for task '{self.task.title}' has been approved. Reward is being processed..."
 
         elif new_result == ReviewResult.rejected:
             self._update_assignment(
@@ -235,8 +235,8 @@ class ReviewActionHandler:
             if self.task.status == TaskStatus.completed:
                 self._update_task(TaskStatus.in_progress)
 
-            reason = f"，原因：{comment}" if comment else ""
-            return f"您提交的任务《{self.task.title}》作业未通过审核{reason}，可以申诉"
+            reason = f", reason: {comment}" if comment else ""
+            return f"Your submission for task '{self.task.title}' has been rejected{reason}. You can appeal."
 
     def _handle_appeal_review(
         self, new_result: ReviewResult, old_result: ReviewResult
@@ -251,20 +251,20 @@ class ReviewActionHandler:
             The notification content.
         """
         if new_result == old_result:
-            return "申诉结果未改变"
+            return "Appeal result unchanged"
 
         if new_result == ReviewResult.approved:
             if self.task.status == TaskStatus.completed:
                 self._update_task(TaskStatus.in_progress)
                 self._update_assignment(AssignmentStatus.task_receive)
                 self._ensure_reward_status(RewardStatus.pending)
-                return f"您的申诉已通过，任务《{self.task.title}》已重置，请重新提交。"
+                return f"Your appeal has been approved. Task '{self.task.title}' has been reset. Please resubmit."
 
             elif self.task.status == TaskStatus.in_progress:
                 self._update_task(TaskStatus.completed)
                 self._update_assignment(AssignmentStatus.task_completed)
                 self._ensure_reward_status(RewardStatus.pending)
-                return f"您的申诉已通过，任务《{self.task.title}》判定为合格，奖励发放中..."
+                return f"Your appeal has been approved. Task '{self.task.title}' is marked as qualified. Reward is being processed..."
 
         elif new_result == ReviewResult.rejected:
             if old_result == ReviewResult.approved:
@@ -272,20 +272,20 @@ class ReviewActionHandler:
                     self._update_task(TaskStatus.completed)
                     self._update_assignment(AssignmentStatus.task_completed)
                     self._ensure_reward_status(RewardStatus.pending)
-                    return f"您的申诉被拒绝，任务《{self.task.title}》维持完成状态，奖励发放中..."
+                    return f"Your appeal was rejected. Task '{self.task.title}' remains completed. Reward is being processed..."
 
                 elif self.task.status == TaskStatus.completed:
                     self._update_task(TaskStatus.in_progress)
                     self._update_assignment(AssignmentStatus.task_receive)
                     self._ensure_reward_status(RewardStatus.pending)
-                    return f"您的申诉被拒绝，请继续完善任务《{self.task.title}》。"
+                    return f"Your appeal was rejected. Please continue to improve task '{self.task.title}'."
             else:
                 if self.task.status == TaskStatus.completed:
                     self._update_assignment(AssignmentStatus.task_completed)
-                    return f"您的申诉被拒绝，任务《{self.task.title}》维持完成状态。"
+                    return f"Your appeal was rejected. Task '{self.task.title}' remains completed."
                 elif self.task.status == TaskStatus.in_progress:
                     self._update_assignment(AssignmentStatus.task_receive)
-                    return f"您的申诉被拒绝，请继续完善任务《{self.task.title}》。"
+                    return f"Your appeal was rejected. Please continue to improve task '{self.task.title}'."
 
 
 @router.post("/submit", response_model=ApiResponse[ReviewRead])
@@ -370,11 +370,11 @@ def submit_review(
     final_review = create_review(db, review, reviewer_id=current_user.id)
 
     message_map = {
-        ReviewType.acceptance_review: "接取审核成功",
-        ReviewType.submission_review: "作业审核成功",
-        ReviewType.appeal_review: "申诉审核成功",
+        ReviewType.acceptance_review: "Acceptance review successful",
+        ReviewType.submission_review: "Submission review successful",
+        ReviewType.appeal_review: "Appeal review successful",
     }
-    message = message_map.get(review.review_type, "审核成功")
+    message = message_map.get(review.review_type, "Review successful")
 
     return success_response(
         data=ReviewRead.from_orm(final_review), message=message
@@ -437,7 +437,7 @@ def list_reviews_api(
         end_time=end_time,
     )
     return success_response(
-        data=[ReviewRead.from_orm(r) for r in reviews], message="获取成功"
+        data=[ReviewRead.from_orm(r) for r in reviews], message="Retrieved successfully"
     )
 
 
@@ -458,7 +458,7 @@ def get_review_detail(review_id: int, db: Session = Depends(get_db)):
     review = get_review(db, review_id)
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
-    return success_response(data=ReviewRead.from_orm(review), message="获取成功")
+    return success_response(data=ReviewRead.from_orm(review), message="Retrieved successfully")
 
 
 @router.get(
@@ -478,7 +478,7 @@ def list_reviews_by_assignment(
     """
     reviews = get_reviews_by_assignment(db, assignment_id)
     return success_response(
-        data=[ReviewRead.from_orm(r) for r in reviews], message="获取成功"
+        data=[ReviewRead.from_orm(r) for r in reviews], message="Retrieved successfully"
     )
 
 @router.post("/{review_id}", response_model=ApiResponse[ReviewRead])
@@ -583,7 +583,7 @@ def update_review_detail(
     )
 
     return success_response(
-        data=ReviewRead.from_orm(final_review), message="审核更新成功"
+        data=ReviewRead.from_orm(final_review), message="Review updated successfully"
     )
 
 

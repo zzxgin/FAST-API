@@ -89,21 +89,21 @@ def accept_task(
             assignment_id=created.id,
             review_result=ReviewResult.pending,
             review_type=ReviewType.acceptance_review,
-            review_comment="自动生成接取任务待审核记录",
+            review_comment="Auto-generated pending acceptance review record",
         )
         pending_review = create_review(
             db, review_in, reviewer_id=current_user.id
         )
         return success_response(
             data=AssignmentRead.from_orm(created),
-            message=f"接取任务成功，已生成待审核记录 review_id={pending_review.id}",
+            message=f"Task accepted successfully. Pending review record generated review_id={pending_review.id}",
         )
     
     # If no admin found, just return success without review (or maybe we should create a review anyway?)
     # For now, let's return success.
     return success_response(
         data=AssignmentRead.from_orm(created),
-        message="接取任务成功"
+        message="Task accepted successfully"
     )
 
 
@@ -125,7 +125,7 @@ def get_assignment_detail(assignment_id: int, db: Session = Depends(get_db)):
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
     return success_response(
-        data=AssignmentRead.from_orm(assignment), message="获取成功"
+        data=AssignmentRead.from_orm(assignment), message="Retrieved successfully"
     )
 
 
@@ -143,7 +143,7 @@ def list_assignments_by_user(user_id: int, db: Session = Depends(get_db)):
     assignments = get_assignments_by_user(db, user_id)
     return success_response(
         data=[AssignmentRead.from_orm(a) for a in assignments],
-        message="获取成功",
+        message="Retrieved successfully",
     )
 
 
@@ -161,7 +161,7 @@ def list_assignments_by_task(task_id: int, db: Session = Depends(get_db)):
     assignments = get_assignments_by_task(db, task_id)
     return success_response(
         data=[AssignmentRead.from_orm(a) for a in assignments],
-        message="获取成功",
+        message="Retrieved successfully",
     )
 
 
@@ -219,11 +219,11 @@ def submit_assignment(
             assignment_id=updated.id,
             review_result=ReviewResult.pending,
             review_type=ReviewType.submission_review,
-            review_comment="自动生成作业提交待审核记录",
+            review_comment="Auto-generated pending submission review record",
         )
         create_review(db, review_in, reviewer_id=current_user.id)
     return success_response(
-        data=AssignmentRead.from_orm(updated), message="提交成功，已生成待审核记录"
+        data=AssignmentRead.from_orm(updated), message="Submitted successfully. Pending review record generated."
     )
 
 
@@ -257,7 +257,7 @@ def update_assignment_progress(
         )
     updated = update_assignment(db, assignment_id, update)
     return success_response(
-        data=AssignmentRead.from_orm(updated), message="更新成功"
+        data=AssignmentRead.from_orm(updated), message="Updated successfully"
     )
 
 
@@ -309,13 +309,13 @@ def appeal_assignment(
             assignment_id=updated.id,
             review_result=ReviewResult.pending,
             review_type=ReviewType.appeal_review,
-            review_comment=f"用户申诉: {appeal_reason}",
+            review_comment=f"User appeal: {appeal_reason}",
         )
         create_review(db, review_in, reviewer_id=current_user.id)
 
     return success_response(
         data=AssignmentRead.from_orm(updated),
-        message="申诉提交成功，已生成待审核记录",
+        message="Appeal submitted successfully. Pending review record generated.",
     )
 
 
@@ -366,5 +366,5 @@ def redo_assignment(
 
     return success_response(
         data=AssignmentRead.from_orm(updated),
-        message="任务状态已重置，请重新提交",
+        message="Task status reset. Please resubmit.",
     )

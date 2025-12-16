@@ -21,7 +21,7 @@ def send_notification(notification: NotificationCreate, db: Session = Depends(ge
     if current_user.role.value != "admin" and current_user.role.value != "publisher":
         raise HTTPException(status_code=403, detail="Only admin and publisher can send notifications")
     created = create_notification(db, notification)
-    return success_response(data=NotificationRead.from_orm(created), message="通知发送成功")
+    return success_response(data=NotificationRead.from_orm(created), message="Notification sent successfully")
     
 @router.get("/user/{user_id}", response_model=ApiResponse[List[NotificationRead]])
 def list_notifications_by_user(user_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
@@ -34,7 +34,7 @@ def list_notifications_by_user(user_id: int, db: Session = Depends(get_db), curr
     notifications = get_notifications_by_user(db, user_id)
     return success_response(
         data=[NotificationRead.from_orm(n) for n in notifications],
-        message="获取成功"
+        message="Retrieved successfully"
     )
 
 @router.patch("/{notification_id}/read", response_model=ApiResponse[NotificationRead])
@@ -48,4 +48,4 @@ def mark_notification_read(notification_id: int, db: Session = Depends(get_db), 
     if notification.user_id != current_user.id and current_user.role.value != "admin":
         raise HTTPException(status_code=403, detail="No permission to update notification")
     updated = update_notification(db, notification_id, NotificationUpdate(is_read=True))
-    return success_response(data=NotificationRead.from_orm(updated), message="标记已读成功")
+    return success_response(data=NotificationRead.from_orm(updated), message="Marked as read successfully")
