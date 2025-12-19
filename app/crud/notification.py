@@ -55,7 +55,7 @@ def notify_rejected_applicants(db: Session, task_id: int, accepted_assignment_id
         for assignment in rejected_assignments:
             notifications.append(Notification(
                 user_id=assignment.user_id,
-                content=f"您申请的任务《{task_title}》已被其他人接取，您的申请已被拒绝。",
+                content=f"The task 《{task_title}》 you applied for has been accepted by another user, and your application has been rejected.",
                 created_at=datetime.utcnow()
             ))
         

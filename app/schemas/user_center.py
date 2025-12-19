@@ -15,6 +15,7 @@ class UserProfileUpdate(BaseModel):
     """Schema for updating user profile."""
     email: Optional[EmailStr] = None
     password: Optional[str] = None
+    old_password: Optional[str] = None
     # TODO: Add more profile fields as needed (avatar, bio, etc.)
 
 
