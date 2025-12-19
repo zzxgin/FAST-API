@@ -41,12 +41,21 @@ def get_user(db: Session, user_id: int) -> Optional[User]:
     return db.query(User).filter(User.id == user_id).first()
 
 
-def update_user(db: Session, user_id: int, role: Optional[UserRole] = None, password: Optional[str] = None) -> Optional[User]:
+def update_user(
+    db: Session,
+    user_id: int,
+    username: Optional[str] = None,
+    email: Optional[str] = None,
+    role: Optional[UserRole] = None,
+    password: Optional[str] = None
+) -> Optional[User]:
     """Update a user's information.
     
     Args:
         db: Database session.
         user_id: User ID to update.
+        username: New username (optional).
+        email: New email (optional).
         role: New role to assign (optional).
         password: New password to set (optional).
     
@@ -57,10 +66,16 @@ def update_user(db: Session, user_id: int, role: Optional[UserRole] = None, pass
         user = db.query(User).filter(User.id == user_id).with_for_update().first()
         if not user:
             return None
+        
+        if username is not None:
+            user.username = username
+        if email is not None:
+            user.email = email
         if role is not None:
             user.role = role
         if password is not None:
             user.password_hash = pwd_context.hash(password)
+            
         db.commit()
         db.refresh(user)
         return user

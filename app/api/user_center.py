@@ -22,7 +22,7 @@ from app.schemas.user_center import (
 )
 from app.crud import user_center as crud_user_center
 
-router = APIRouter()
+router = APIRouter(prefix="/api/user", tags=["user-center"])
 
 
 @router.get("/profile", response_model=ApiResponse[UserProfileResponse])
@@ -55,10 +55,13 @@ async def update_user_profile(
     Returns:
         Updated user profile
     """
-    user = crud_user_center.update_user_profile(db, current_user.id, profile_update)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return success_response(data=user, message="更新成功")
+    try:
+        user = crud_user_center.update_user_profile(db, current_user.id, profile_update)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return success_response(data=user, message="Updated successfully")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/tasks", response_model=ApiResponse[List[UserTaskRecord]])

@@ -18,6 +18,8 @@ class AdminUserItem(BaseModel):
 
 
 class AdminUserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
     role: Optional[UserRole] = None
     password: Optional[str] = None
 

@@ -46,6 +46,9 @@ def update_user_profile(db: Session, user_id: int, profile_update: UserProfileUp
 
     Returns:
         Updated User instance or None
+
+    Raises:
+        ValueError: If old password verification fails
     """
     try:
         user = db.query(User).filter(User.id == user_id).with_for_update().first()
@@ -55,8 +58,19 @@ def update_user_profile(db: Session, user_id: int, profile_update: UserProfileUp
         update_data = profile_update.dict(exclude_unset=True)
         
         if "password" in update_data:
-            password = update_data.pop("password")
-            user.password_hash = pwd_context.hash(password)
+            new_password = update_data.pop("password")
+            old_password = update_data.pop("old_password", None)
+
+            if not old_password:
+                raise ValueError("Old password is required to change password")
+            
+            if not pwd_context.verify(old_password, user.password_hash):
+                raise ValueError("Incorrect old password")
+
+            user.password_hash = pwd_context.hash(new_password)
+        else:
+            # If password is not being updated, ensure old_password is removed from data to update
+            update_data.pop("old_password", None)
 
         for field, value in update_data.items():
             setattr(user, field, value)

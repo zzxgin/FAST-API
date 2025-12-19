@@ -34,7 +34,7 @@ app.include_router(assignment.router)
 app.include_router(review.router)
 app.include_router(reward.router)
 app.include_router(notifications.router)
-app.include_router(user_center.router, prefix="/api/user", tags=["user-center"])
+app.include_router(user_center.router)
 app.include_router(admin.router)
 
 # Register global exception handlers
