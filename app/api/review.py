@@ -1,0 +1,658 @@
+"""Review API routes for review, appeal, and arbitration.
+
+All endpoints use OpenAPI English doc comments.
+"""
+
+from datetime import datetime
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.core.response import ApiResponse, success_response
+from app.core.security import get_current_user
+from app.crud.assignment import (
+    get_assignment,
+    reject_other_pending_assignments,
+    update_assignment,
+)
+from app.crud.notification import create_notification, notify_rejected_applicants
+from app.crud.review import (
+    create_review,
+    get_pending_review,
+    get_review,
+    get_reviews_by_assignment,
+    list_reviews,
+    reject_other_pending_reviews,
+    update_review,
+)
+from app.crud.reward import (
+    create_reward,
+    get_reward_by_assignment_id,
+    update_reward,
+)
+from app.crud.task import update_task
+from app.models.assignment import AssignmentStatus, TaskAssignment
+from app.models.review import ReviewResult, ReviewType
+from app.models.reward import Reward, RewardStatus
+from app.models.task import Task, TaskStatus
+from app.schemas.assignment import AssignmentUpdate
+from app.schemas.notification import NotificationCreate
+from app.schemas.review import ReviewCreate, ReviewRead, ReviewUpdate
+from app.schemas.reward import RewardCreate, RewardUpdate
+from app.schemas.task import TaskUpdate
+
+router = APIRouter(prefix="/api/review", tags=["review"])
+
+
+def admin_only(user=Depends(get_current_user)):
+    """Verify admin privileges.
+
+    Args:
+        user: The current user.
+
+    Returns:
+        The user if they are an admin.
+
+    Raises:
+        HTTPException: If the user is not an admin.
+    """
+    if user.role.value != "admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    return user
+
+
+class ReviewActionHandler:
+    """Handles business logic for review decisions."""
+
+    def __init__(self, db: Session, assignment: TaskAssignment, task: Task):
+        """Initializes the handler.
+
+        Args:
+            db: Database session.
+            assignment: The assignment being reviewed.
+            task: The task associated with the assignment.
+        """
+        self.db = db
+        self.assignment = assignment
+        self.task = task
+
+    def apply(
+        self,
+        review_type: ReviewType,
+        new_result: ReviewResult,
+        comment: Optional[str],
+        old_result: ReviewResult = ReviewResult.pending,
+    ):
+        """Apply review logic based on type.
+
+        Args:
+            review_type: The type of review.
+            new_result: The new result of the review.
+            comment: Optional comment for the review.
+            old_result: The previous result of the review. Defaults to pending.
+        """
+        notification_content = ""
+
+        if review_type == ReviewType.acceptance_review:
+            notification_content = self._handle_acceptance_review(
+                new_result, comment
+            )
+        elif review_type == ReviewType.submission_review:
+            notification_content = self._handle_submission_review(
+                new_result, comment
+            )
+        elif review_type == ReviewType.appeal_review:
+            notification_content = self._handle_appeal_review(
+                new_result, old_result
+            )
+
+        if notification_content:
+            self._send_notification(notification_content)
+
+    def _update_assignment(
+        self, status: AssignmentStatus, update_review_time: bool = False
+    ):
+        """Updates the assignment status.
+
+        Args:
+            status: The new status.
+            update_review_time: Whether to update the review time.
+        """
+        update_data = AssignmentUpdate(status=status)
+        if update_review_time:
+            update_data.review_time = datetime.utcnow()
+        update_assignment(self.db, self.assignment.id, update_data)
+
+    def _update_task(self, status: TaskStatus):
+        """Updates the task status.
+
+        Args:
+            status: The new status.
+        """
+        update_task(self.db, self.task.id, TaskUpdate(status=status))
+
+    def _send_notification(self, content: str):
+        """Sends a notification to the user.
+
+        Args:
+            content: The notification content.
+        """
+        create_notification(
+            self.db,
+            NotificationCreate(
+                user_id=self.assignment.user_id,
+                content=content,
+            ),
+        )
+
+    def _ensure_reward_status(self, status: RewardStatus):
+        """Ensures the reward status is correct.
+
+        Args:
+            status: The target status.
+        """
+        reward = get_reward_by_assignment_id(self.db, self.assignment.id)
+        if reward:
+            update_reward(self.db, reward.id, RewardUpdate(status=status))
+        else:
+            create_reward(
+                self.db,
+                RewardCreate(
+                    assignment_id=self.assignment.id,
+                    amount=self.task.reward_amount,
+                    created_at=datetime.utcnow(),
+                    status=status,
+                ),
+            )
+
+    def _handle_acceptance_review(
+        self, new_result: ReviewResult, comment: Optional[str]
+    ) -> str:
+        """Handles acceptance review logic.
+
+        Args:
+            new_result: The new review result.
+            comment: Optional comment.
+
+        Returns:
+            The notification content.
+        """
+        if new_result == ReviewResult.approved:
+            self._update_assignment(
+                AssignmentStatus.task_receive, update_review_time=True
+            )
+
+            if self.task.status == TaskStatus.open:
+                self._update_task(TaskStatus.in_progress)
+
+            notify_rejected_applicants(
+                self.db, self.task.id, self.assignment.id, self.task.title
+            )
+            reject_other_pending_assignments(
+                self.db, self.task.id, self.assignment.id
+            )
+            reject_other_pending_reviews(
+                self.db, self.task.id, self.assignment.id
+            )
+
+            return f"Your application to accept task '{self.task.title}' has been approved. You can start the task now!"
+
+        elif new_result == ReviewResult.rejected:
+            self._update_assignment(
+                AssignmentStatus.task_receivement_rejected,
+                update_review_time=True,
+            )
+            self._update_task(TaskStatus.open)
+            reason = f", reason: {comment}" if comment else ""
+            return f"Your application to accept task '{self.task.title}' has been rejected{reason}"
+    def _handle_submission_review(
+        self, new_result: ReviewResult, comment: Optional[str]
+    ) -> str:
+        """Handles submission review logic.
+
+        Args:
+            new_result: The new review result.
+            comment: Optional comment.
+
+        Returns:
+            The notification content.
+        """
+        if new_result == ReviewResult.approved:
+            self._update_assignment(
+                AssignmentStatus.task_completed, update_review_time=True
+            )
+            self._update_task(TaskStatus.completed)
+            self._ensure_reward_status(RewardStatus.pending)
+            return f"Congratulations! Your submission for task '{self.task.title}' has been approved. Reward is being processed..."
+
+        elif new_result == ReviewResult.rejected:
+            self._update_assignment(
+                AssignmentStatus.task_reject, update_review_time=True
+            )
+
+            if self.task.status == TaskStatus.completed:
+                self._update_task(TaskStatus.in_progress)
+
+            reason = f", reason: {comment}" if comment else ""
+            return f"Your submission for task '{self.task.title}' has been rejected{reason}. You can appeal."
+
+    def _handle_appeal_review(
+        self, new_result: ReviewResult, old_result: ReviewResult
+    ) -> str:
+        """Handles appeal review logic.
+
+        Args:
+            new_result: The new review result.
+            old_result: The previous review result.
+
+        Returns:
+            The notification content.
+        """
+        if new_result == old_result:
+            return "Appeal result unchanged"
+
+        if new_result == ReviewResult.approved:
+            if self.task.status == TaskStatus.completed:
+                self._update_task(TaskStatus.in_progress)
+                self._update_assignment(AssignmentStatus.task_receive)
+                self._ensure_reward_status(RewardStatus.pending)
+                return f"Your appeal has been approved. Task '{self.task.title}' has been reset. Please resubmit."
+
+            elif self.task.status == TaskStatus.in_progress:
+                self._update_task(TaskStatus.completed)
+                self._update_assignment(AssignmentStatus.task_completed)
+                self._ensure_reward_status(RewardStatus.pending)
+                return f"Your appeal has been approved. Task '{self.task.title}' is marked as qualified. Reward is being processed..."
+
+        elif new_result == ReviewResult.rejected:
+            if old_result == ReviewResult.approved:
+                if self.task.status == TaskStatus.in_progress:
+                    self._update_task(TaskStatus.completed)
+                    self._update_assignment(AssignmentStatus.task_completed)
+                    self._ensure_reward_status(RewardStatus.pending)
+                    return f"Your appeal was rejected. Task '{self.task.title}' remains completed. Reward is being processed..."
+
+                elif self.task.status == TaskStatus.completed:
+                    self._update_task(TaskStatus.in_progress)
+                    self._update_assignment(AssignmentStatus.task_receive)
+                    self._ensure_reward_status(RewardStatus.pending)
+                    return f"Your appeal was rejected. Please continue to improve task '{self.task.title}'."
+            else:
+                if self.task.status == TaskStatus.completed:
+                    self._update_assignment(AssignmentStatus.task_completed)
+                    return f"Your appeal was rejected. Task '{self.task.title}' remains completed."
+                elif self.task.status == TaskStatus.in_progress:
+                    self._update_assignment(AssignmentStatus.task_receive)
+                    return f"Your appeal was rejected. Please continue to improve task '{self.task.title}'."
+
+
+@router.post("/submit", response_model=ApiResponse[ReviewRead])
+def submit_review(
+    review: ReviewCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Submit a review for a task assignment.
+
+    Supports three review types: acceptance_review, submission_review,
+    appeal_review.
+
+    Args:
+        review: The review data.
+        db: Database session.
+        current_user: The currently authenticated user.
+
+    Returns:
+        ApiResponse: The created or updated review data.
+
+    Raises:
+        HTTPException: If assignment/task not found, permission denied, or
+            invalid review type.
+    """
+    assignment = get_assignment(db, review.assignment_id)
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    task = db.query(Task).filter(Task.id == assignment.task_id).first()
+    if not task:
+        raise HTTPException(
+            status_code=404, detail="Associated task not found"
+        )
+
+    if review.review_type in [
+        ReviewType.acceptance_review,
+        ReviewType.submission_review,
+        ReviewType.appeal_review,
+    ]:
+        is_admin = current_user.role.value == "admin"
+        is_publisher = (
+            current_user.role.value == "publisher"
+            and task.publisher_id == current_user.id
+        )
+
+        if not (is_admin or is_publisher):
+            raise HTTPException(
+                status_code=403,
+                detail="Permission denied. Only admin or task publisher can review.",
+            )
+    else:
+        raise HTTPException(status_code=400, detail="Invalid review type")
+
+    validate_review_preconditions(
+        review_type=review.review_type,
+        review_result=review.review_result,
+        assignment=assignment,
+    )
+
+    review_action_handler = ReviewActionHandler(db, assignment, task)
+    review_action_handler.apply(
+        review_type=review.review_type,
+        new_result=review.review_result,
+        comment=review.review_comment,
+        old_result=ReviewResult.pending,
+    )
+
+    pending_review = get_pending_review(db, assignment.id, review.review_type)
+
+    if pending_review:
+        # Only update status of the auto-created pending review
+        update_review(
+            db,
+            pending_review.id,
+            ReviewUpdate(
+                review_result=review.review_result,
+                review_time=datetime.utcnow(),
+            ),
+        )
+
+    # Always create a new review for the actual judgment
+    final_review = create_review(db, review, reviewer_id=current_user.id)
+
+    message_map = {
+        ReviewType.acceptance_review: "Acceptance review successful",
+        ReviewType.submission_review: "Submission review successful",
+        ReviewType.appeal_review: "Appeal review successful",
+    }
+    message = message_map.get(review.review_type, "Review successful")
+
+    return success_response(
+        data=ReviewRead.from_orm(final_review), message=message
+    )
+
+
+@router.get("/list", response_model=ApiResponse[List[ReviewRead]])
+def list_reviews_api(
+    skip: int = 0,
+    limit: int = 20,
+    review_type: Optional[ReviewType] = None,
+    review_result: Optional[ReviewResult] = None,
+    task_title: Optional[str] = None,
+    submitter_username: Optional[str] = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """List reviews with pagination and filters (admin only).
+
+    Args:
+        skip: Number of records to skip.
+        limit: Maximum number of records to return.
+        review_type: Filter by review type.
+        review_result: Filter by review result.
+        task_title: Filter by task title (fuzzy search).
+        submitter_username: Filter by submitter username (fuzzy search).
+        start_time: Filter by start time.
+        end_time: Filter by end time.
+        db: Database session.
+        current_user: The currently authenticated user.
+
+    Returns:
+        ApiResponse: A list of reviews.
+
+    Raises:
+        HTTPException: If user is not an admin or publisher.
+    """
+    is_admin = current_user.role.value == "admin"
+    is_publisher = current_user.role.value == "publisher"
+
+    if not (is_admin or is_publisher):
+        raise HTTPException(
+            status_code=403, detail="Only admin or publisher can list reviews"
+        )
+
+    publisher_filter = current_user.id if is_publisher else None
+
+    reviews = list_reviews(
+        db=db,
+        skip=skip,
+        limit=limit,
+        review_type=review_type,
+        review_result=review_result,
+        task_title=task_title,
+        submitter_username=submitter_username,
+        publisher_id=publisher_filter,
+        start_time=start_time,
+        end_time=end_time,
+    )
+    return success_response(
+        data=[ReviewRead.from_orm(r) for r in reviews], message="Retrieved successfully"
+    )
+
+
+@router.get("/{review_id}", response_model=ApiResponse[ReviewRead])
+def get_review_detail(review_id: int, db: Session = Depends(get_db)):
+    """Get review detail by ID.
+
+    Args:
+        review_id: The ID of the review.
+        db: Database session.
+
+    Returns:
+        ApiResponse: The review details.
+
+    Raises:
+        HTTPException: If review not found.
+    """
+    review = get_review(db, review_id)
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return success_response(data=ReviewRead.from_orm(review), message="Retrieved successfully")
+
+
+@router.get(
+    "/assignment/{assignment_id}", response_model=ApiResponse[List[ReviewRead]]
+)
+def list_reviews_by_assignment(
+    assignment_id: int, db: Session = Depends(get_db)
+):
+    """List all reviews for a specific assignment.
+
+    Args:
+        assignment_id: The ID of the assignment.
+        db: Database session.
+
+    Returns:
+        ApiResponse: A list of reviews for the assignment.
+    """
+    reviews = get_reviews_by_assignment(db, assignment_id)
+    return success_response(
+        data=[ReviewRead.from_orm(r) for r in reviews], message="Retrieved successfully"
+    )
+
+@router.post("/{review_id}", response_model=ApiResponse[ReviewRead])
+def update_review_detail(
+    review_id: int,
+    review_update: ReviewUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Update review and apply business logic.
+
+    Args:
+        review_id: The ID of the review to update.
+        review_update: The update data.
+        db: Database session.
+        current_user: The currently authenticated user.
+
+    Returns:
+        ApiResponse: The updated review data.
+
+    Raises:
+        HTTPException: If review/assignment/task not found, permission denied,
+            or invalid review type.
+    """
+    db_review = get_review(db, review_id)
+    if not db_review:
+        raise HTTPException(status_code=404, detail="Review not found")
+
+    assignment = get_assignment(db, db_review.assignment_id)
+    if not assignment:
+        raise HTTPException(
+            status_code=404, detail="Associated assignment not found"
+        )
+    task = db.query(Task).filter(Task.id == assignment.task_id).first()
+    if not task:
+        raise HTTPException(
+            status_code=404, detail="Associated task not found"
+        )
+
+    is_admin = current_user.role.value == "admin"
+    is_publisher = (
+        current_user.role.value == "publisher"
+        and task.publisher_id == current_user.id
+    )
+
+    if not (is_admin or is_publisher):
+        raise HTTPException(
+            status_code=403,
+            detail="Permission denied. Only admin or task publisher can update reviews",
+        )
+
+    new_result = review_update.review_result or db_review.review_result
+    if not task:
+        raise HTTPException(
+            status_code=404, detail="Associated task not found"
+        )
+
+    new_result = review_update.review_result or db_review.review_result
+
+    if db_review.review_type not in [
+        ReviewType.acceptance_review,
+        ReviewType.submission_review,
+        ReviewType.appeal_review,
+    ]:
+        raise HTTPException(status_code=400, detail="Invalid review type")
+
+    validate_review_preconditions(
+        review_type=db_review.review_type,
+        review_result=new_result,
+        assignment=assignment,
+        old_review_result=db_review.review_result,
+    )
+
+    review_action_handler = ReviewActionHandler(db, assignment, task)
+    review_action_handler.apply(
+        review_type=db_review.review_type,
+        new_result=new_result,
+        comment=review_update.review_comment,
+        old_result=db_review.review_result,
+    )
+
+    # Update the existing review (User's request) - Only status
+    update_review(
+        db,
+        db_review.id,
+        ReviewUpdate(
+            review_result=new_result,
+            review_time=datetime.utcnow(),
+        ),
+    )
+
+    # Create a new review (Admin's judgment)
+    final_review = create_review(
+        db,
+        ReviewCreate(
+            assignment_id=assignment.id,
+            review_type=db_review.review_type,
+            review_result=new_result,
+            review_comment=review_update.review_comment,
+        ),
+        reviewer_id=current_user.id,
+    )
+
+    return success_response(
+        data=ReviewRead.from_orm(final_review), message="Review updated successfully"
+    )
+
+
+def validate_review_preconditions(
+    review_type: ReviewType,
+    review_result: ReviewResult,
+    assignment: TaskAssignment,
+    old_review_result: ReviewResult = ReviewResult.pending,
+):
+    """Validate preconditions for review actions.
+
+    Args:
+        review_type: The type of review.
+        review_result: The result of the review.
+        assignment: The assignment being reviewed.
+        old_review_result: The previous review result. Defaults to pending.
+
+    Raises:
+        HTTPException: If preconditions are not met.
+    """
+    if review_type == ReviewType.acceptance_review:
+        if (
+            old_review_result == ReviewResult.pending
+            and assignment.status != AssignmentStatus.task_pending
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Only task_pending assignments can be reviewed for acceptance",
+            )
+        if assignment.submit_content:
+            raise HTTPException(
+                status_code=400,
+                detail="This assignment has submission content, cannot review as acceptance",
+            )
+
+        if review_result not in [ReviewResult.approved, ReviewResult.rejected]:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid review_result for acceptance review",
+            )
+
+    elif review_type == ReviewType.submission_review:
+        if (
+            old_review_result == ReviewResult.pending
+            and assignment.status
+            != AssignmentStatus.assignment_submission_pending
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Only assignment_submission_pending assignments can be reviewed for submission",
+            )
+        if not assignment.submit_content:
+            raise HTTPException(
+                status_code=400,
+                detail="This assignment has no submission content, cannot review as submission",
+            )
+
+        if review_result not in [ReviewResult.approved, ReviewResult.rejected]:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid review_result for submission review",
+            )
+
+    elif review_type == ReviewType.appeal_review:
+        if (
+            old_review_result == ReviewResult.pending
+            and assignment.status != AssignmentStatus.appealing
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Assignment is not in appealing status",
+            )

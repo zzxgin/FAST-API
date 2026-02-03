@@ -1,1 +1,63 @@
-venv
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Virtualenv
+venv/
+.env
+env/
+
+# VSCode
+.vscode/
+
+# MacOS
+.DS_Store
+
+# Logs
+*.log
+logs
+
+# Test/coverage
+htmlcov/
+.coverage
+.tox/
+.pytest_cache/
+
+# MySQL dumps
+add*.sql
+
+# Docker
+*.pid
+docker-compose.override.yml
+docker-compose.prod.yml
+mysql-standalone.yml
+
+# Alembic
+alembic/versions/
+
+# Ignore secrets
+*.secret
+*.key
+*.pem
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Misc
+*.swp
+*.swo
+
+# uploads
+uploads/
+#md
+API_DESIGN_ANALYSIS.md  
+RESPONSE_FORMAT.md
+SMOKE_TEST_REPORT.md
+
+#unit_test
+test.db
+report/
+coverage_reports/
